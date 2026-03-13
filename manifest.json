@@ -1,0 +1,22 @@
+{
+  "name": "Be Fit Marke — Eetdagboek",
+  "short_name": "Be Fit",
+  "description": "Mijn persoonlijk eetdagboekje van Be Fit Marke",
+  "start_url": "./befit-eetdagboek.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1E3D20",
+  "theme_color": "#1E3D20",
+  "lang": "nl",
+  "icons": [
+    { "src": "icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    { "src": "./befit-eetdagboek.html", "type": "text/html", "label": "Be Fit eetdagboek" }
+  ]
+}
