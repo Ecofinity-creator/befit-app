@@ -45,9 +45,10 @@ body{font-family:'Lato',sans-serif;background:linear-gradient(160deg,#1E3D20 0%,
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1E3D20;color:#F0EAD6;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1;}
 .nav{display:flex;background:#fff;border-top:1px solid #E8E0D0;position:sticky;bottom:0;z-index:100;overflow-x:auto;}
-.nav-item{flex:1;min-width:48px;display:flex;flex-direction:column;align-items:center;padding:8px 2px 6px;font-size:9px;font-weight:700;color:#9E9580;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;position:relative;white-space:nowrap;}
+.nav-bar::-webkit-scrollbar{display:none;}
+.nav-item{flex:0 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;padding:7px 4px 5px;font-size:8px;font-weight:700;color:#9E9580;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;position:relative;white-space:nowrap;}
 .nav-item.on{color:#1E3D20;border-top:2px solid #4A8E7B;}
-.nav-icon{font-size:18px;display:block;margin-bottom:2px;}
+.nav-icon{font-size:20px;display:block;margin-bottom:1px;}
 .content{padding:14px;padding-bottom:80px;}
 .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
 .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
@@ -200,9 +201,16 @@ const DB={
 };
 
 async function syncFromFirestore(email){
-  var keys=["user:"+email,"diary:"+email+":"+today(),"feedback:"+email+":"+today(),
-    "chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,
-    "push:sub:"+email,"push:backend:url"];
+  // Build keys: user + last 7 days diary/feedback + chat + broadcast + weights + push
+  var keys=["user:"+email,"chat:"+email,"broadcast:messages",
+    "broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url"];
+  // Add last 7 days of diary and feedback
+  for(var i=0;i<7;i++){
+    var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    keys.push("diary:"+email+":"+ds);
+    keys.push("feedback:"+email+":"+ds);
+  }
   await Promise.all(keys.map(async function(k){
     try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();
     if(snap.exists) localStorage.setItem(k,snap.data().v);}catch(e){}
@@ -245,7 +253,8 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd. Neem contact op met Be Fit Marke.';err.classList.add('show');return;}
   S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];
-  loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();}
+  loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
+  syncFromFirestore(email).then(function(){loadUserData();render();});}
 function doRegister(){var name=document.getElementById('reg-name').value.trim(),email=document.getElementById('reg-email').value.trim().toLowerCase(),pass=document.getElementById('reg-pass').value,err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');err.classList.remove('show');ok.classList.remove('show');if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(DB.get('user:'+email)){err.textContent='Al geregistreerd.';err.classList.add('show');return;}DB.set('user:'+email,{email:email,name:name,pass:btoa(pass),created:Date.now(),status:'pending'});ok.textContent='Account aangemaakt! Je wordt ingelogd...';ok.classList.add('show');setTimeout(function(){S.user={email:email,name:name,isAdmin:false};S.screen='app';S.meals={morning:[],lunch:[],evening:[]};S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];startReminderCheck();render();},1200);}
 function doForgot(){var email=document.getElementById('fg-email').value.trim().toLowerCase(),err=document.getElementById('fg-err');err.classList.remove('show');if(!email){err.textContent='Vul je e-mailadres in.';err.classList.add('show');return;}var isAdmin=!!findAdmin(email),isClient=!!DB.get('user:'+email);if(!isAdmin&&!isClient){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}S._forgotEmail=email;S._forgotIsAdmin=isAdmin;S.screen='changepass';render();}
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
@@ -256,6 +265,13 @@ function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;
   showToast('✓ Aanmelding goedgekeurd');loadAdminClients();render();
   var sub=DB.get('push:sub:'+email);
   if(sub) sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd! Je kan nu inloggen.','login');}
+function toggleChat(email){
+  var ud=DB.get('user:'+email);if(!ud)return;
+  ud.chatEnabled=ud.chatEnabled===false?true:false;
+  DB.set('user:'+email,ud);
+  showToast(ud.chatEnabled===false?'Chat uitgeschakeld':'Chat ingeschakeld');
+  loadAdminClients();render();
+}
 function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;
   ud.status='rejected';DB.set('user:'+email,ud);
   showToast('Toegang ingetrokken');loadAdminClients();render();}
@@ -333,6 +349,12 @@ function apptBlock(){
 }
 
 function chatBlock(){
+  var ud=DB.get('user:'+S.user.email);
+  if(ud&&ud.chatEnabled===false){
+    return '<div class="card" style="text-align:center;padding:40px 20px;">'+'<div style="font-size:40px;margin-bottom:12px;">&#x1F4AC;</div>'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Chat niet beschikbaar</div>'
+      +'<div style="font-size:13px;color:#9E9580;">De chatfunctie is nog niet vrijgegeven door je di\u00ebtiste.</div></div>';
+  }
   var msgs=getChat(S.user.email),changed=false;
   msgs.forEach(function(m){if(m.from==='admin'&&!m.read){m.read=true;changed=true;}});
   if(changed)saveChat(S.user.email,msgs);
@@ -505,6 +527,45 @@ function weightBlock(){
   },80);
   return entryCard+statsHtml+chartCard+logCard;
 }
+function profileBlock(){
+  var ud=DB.get('user:'+S.user.email)||{};
+  return '<div class="card">'
+    +'<div class="card-head"><div class="card-icon-box">&#x1F464;</div><span class="card-title">Mijn profiel</span></div>'
+    +'<div style="margin-bottom:14px;">'
+    +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Naam</div>'
+    +'<input id="prof-name" type="text" value="'+(ud.name||'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
+    +'</div>'
+    +'<div style="margin-bottom:14px;">'
+    +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Nieuw wachtwoord <span style="font-weight:400;color:#9E9580;">(laat leeg om te behouden)</span></div>'
+    +'<input id="prof-pass1" type="password" placeholder="Nieuw wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/>'
+    +'<input id="prof-pass2" type="password" placeholder="Herhaal wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
+    +'</div>'
+    +'<div id="prof-err" style="color:#C0392B;font-size:12px;margin-bottom:10px;display:none;"></div>'
+    +'<button onclick="saveProfile()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Wijzigingen opslaan</button>'
+    +'</div>'
+    +'<div class="card">'
+    +'<div style="font-size:12px;color:#9E9580;margin-bottom:6px;">&#x1F4E7; E-mailadres</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#1E3D20;">'+S.user.email+'</div>'
+    +'<div style="font-size:11px;color:#9E9580;margin-top:4px;">E-mailadres kan niet worden gewijzigd.</div>'
+    +'</div>';
+}
+function saveProfile(){
+  var name=document.getElementById('prof-name').value.trim();
+  var p1=document.getElementById('prof-pass1').value;
+  var p2=document.getElementById('prof-pass2').value;
+  var err=document.getElementById('prof-err');
+  err.style.display='none';
+  if(!name){err.textContent='Naam mag niet leeg zijn.';err.style.display='block';return;}
+  if(p1&&p1.length<4){err.textContent='Wachtwoord moet minstens 4 tekens bevatten.';err.style.display='block';return;}
+  if(p1&&p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}
+  var ud=DB.get('user:'+S.user.email);
+  ud.name=name;
+  if(p1) ud.pass=btoa(p1);
+  DB.set('user:'+S.user.email,ud);
+  S.user.name=name;
+  showToast('\u2713 Profiel opgeslagen');
+  render();
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -569,7 +630,7 @@ function render(){
   // CLIENT APP
   var D=new Date(),months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   var tab=S.tab;
-  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='news'?newsBlock():summaryBlock();
+  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():summaryBlock();
   var unreadChat=getChat(S.user.email).filter(function(m){return m.from==='admin'&&!m.read;}).length;
   var unreadNews=unreadBroadcastCount(S.user.email);
   function navItem(id,icon,label,active,badge){
@@ -591,6 +652,7 @@ function render(){
     +navItem('water','\uD83D\uDCA7','Water',tab==='water',0)
     +navItem('weight','\u2696\uFE0F','Gewicht',tab==='weight',0)
     +navItem('appt','\uD83D\uDCC5','Afspraken',tab==='appt',0)
+    +navItem('profile','\u2699\uFE0F','Profiel',tab==='profile',0)
     +navItem('chat','\uD83D\uDCAC','Chat',tab==='chat',unreadChat||0)
     +navItem('news','\uD83D\uDCE3','Nieuws',tab==='news',unreadNews||0)
     +navItem('summary','\uD83D\uDCCB','Overzicht',tab==='summary',0)
