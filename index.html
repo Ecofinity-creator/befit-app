@@ -130,11 +130,7 @@ const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJ
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').then(function(reg){
     console.log('SW registered');
-    if('periodicSync' in reg) reg.periodicSync.register('check-reminders',{minInterval:15*60*1000}).catch(function(){});
   }).catch(function(e){console.log('SW error',e);});
-  navigator.serviceWorker.addEventListener('message',function(e){
-    if(e.data&&e.data.type==='CHECK_TIMERS') startReminderCheck();
-  });
 }
 function urlB64ToUint8(b64){
   var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');
@@ -160,11 +156,15 @@ async function requestNotifPermission(){
 }
 function localNotif(title,body,tag){
   if(Notification.permission!=='granted') return;
-  try{
-    navigator.serviceWorker.ready.then(function(reg){
-      reg.showNotification(title,{body:body,icon:'icon-192.png',badge:'icon-72.png',tag:tag||'befit',vibrate:[200,100,200]});
-    });
-  }catch(e){}
+  try{ navigator.serviceWorker.ready.then(function(reg){
+    reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});
+  });} catch(e){}
+}
+function sendPushToClient(sub,title,body,tag){
+  var backendUrl=DB.get('push:backend:url');
+  if(backendUrl) fetch(backendUrl+'/api/send-push',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({subscription:sub,title:title,body:body,tag:tag})}).catch(function(){});
 }
 const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'},{email:'amber@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Amber'}];
 function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
@@ -172,7 +172,48 @@ function findAdmin(e){return ADMINS.find(function(a){return a.email===e;});}
 const SHAPEVIEW='https://planner.shapeview.be/?id=5ee2235fda862';
 const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghurt, fruit...'},lunch:{label:'Middagmaal',icon:'\u2600\uFE0F',ph:'bv. salade, soep, broodje...'},evening:{label:'Avondmaal',icon:'\uD83C\uDF19',ph:'bv. pasta, vis, groenten...'}};
 
-const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del:function(k){localStorage.removeItem(k);},keys:function(){return Object.keys(localStorage);}};
+// ── Firebase ────────────────────────────────────────────────
+var firebaseConfig={
+  apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",
+  authDomain:"befit-marke.firebaseapp.com",
+  projectId:"befit-marke",
+  storageBucket:"befit-marke.firebasestorage.app",
+  messagingSenderId:"141778728988",
+  appId:"1:141778728988:web:1df297f0142176cb6a07d9"
+};
+firebase.initializeApp(firebaseConfig);
+var fsdb=firebase.firestore();
+function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
+function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
+
+const DB={
+  get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},
+  set:function(k,v){
+    try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
+    fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});
+  },
+  del:function(k){
+    localStorage.removeItem(k);
+    fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});
+  },
+  keys:function(){return Object.keys(localStorage);}
+};
+
+async function syncFromFirestore(email){
+  var keys=["user:"+email,"diary:"+email+":"+today(),"feedback:"+email+":"+today(),
+    "chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,
+    "push:sub:"+email,"push:backend:url"];
+  await Promise.all(keys.map(async function(k){
+    try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();
+    if(snap.exists) localStorage.setItem(k,snap.data().v);}catch(e){}
+  }));
+}
+async function syncAllFromFirestore(){
+  try{var snap=await fsdb.collection("data").get();
+  snap.forEach(function(doc){localStorage.setItem(fromFsKey(doc.id),doc.data().v);});}
+  catch(e){console.log("Firestore sync error",e);}
+}
+
 
 var S={screen:'login',user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
@@ -187,13 +228,20 @@ function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+today
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:');}).map(function(k){return DB.get(k);}).filter(Boolean).sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);if(adm&&pass===getAdminPass(email)){S.user={email:email,name:adm.name,isAdmin:true};S.screen='admin';S.adminTab='clients';loadAdminClients();render();return;}err.textContent='Even geduld\u2026';err.classList.add('show');
-  try{var _snap=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_snap.exists) localStorage.setItem('user:'+email,_snap.data().v);}catch(_e){ await syncUserFromFirestore(email); }
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);if(adm&&pass===getAdminPass(email)){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');
+    await syncAllFromFirestore();
+    err.classList.remove('show');
+    S.screen='admin';S.adminTab='clients';loadAdminClients();render();return;}err.textContent='Even geduld…';err.classList.add('show');
+  try{
+    var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();
+    if(_s.exists) localStorage.setItem('user:'+email,_s.data().v);
+    else await syncFromFirestore(email);
+  }catch(_e){}
   var ud=DB.get('user:'+email);
   err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
-  if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring van je di\u00ebtiste.';err.classList.add('show');return;}
+  if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring van je diëtiste.';err.classList.add('show');return;}
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd. Neem contact op met Be Fit Marke.';err.classList.add('show');return;}
   S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];
@@ -203,17 +251,18 @@ function doForgot(){var email=document.getElementById('fg-email').value.trim().t
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
 function logout(){clearInterval(S._reminderInterval);S.user=null;S.screen='login';render();}
 
-function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Aanmelding goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub) sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd! Je kan nu inloggen.','login');}
-function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Toegang ingetrokken');loadAdminClients();render();}
-function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Account verwijderd');loadAdminClients();render();}
-function sendPushToClient(sub,title,body,tag){
-  var backendUrl=DB.get('push:backend:url');
-  if(backendUrl){
-    fetch(backendUrl+'/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({subscription:sub,title:title,body:body,tag:tag})
-    }).catch(function(){});
-  }
-}
+function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;
+  ud.status='approved';DB.set('user:'+email,ud);
+  showToast('✓ Aanmelding goedgekeurd');loadAdminClients();render();
+  var sub=DB.get('push:sub:'+email);
+  if(sub) sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd! Je kan nu inloggen.','login');}
+function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;
+  ud.status='rejected';DB.set('user:'+email,ud);
+  showToast('Toegang ingetrokken');loadAdminClients();render();}
+function deleteClient(email){DB.del('user:'+email);
+  DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());
+  DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);
+  showToast('Account verwijderd');loadAdminClients();render();}
 function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();render();}
 function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
 function updateMealTime(k,i,val){S.meals[k][i].timeStr=val;saveUserData();}
@@ -238,9 +287,9 @@ function markBroadcastsRead(email){DB.set('broadcast:read:'+email,getBroadcasts(
 function unreadBroadcastCount(email){var read=getReadIds(email);return getBroadcasts().filter(function(m){return !read.includes(m.id);}).length;}
 function postBroadcast(){var tEl=document.getElementById('bc-title'),txEl=document.getElementById('bc-text'),cEl=document.getElementById('bc-cat'),title=(tEl.value||'').trim(),text=(txEl.value||'').trim(),cat=cEl?cEl.value:'\uD83D\uDCA1';if(!text){showToast('\u274C Vul een bericht in');return;}var msgs=getBroadcasts();msgs.unshift({id:Date.now().toString(),from:S.user.name,title:title,text:text,cat:cat,ts:Date.now()});saveBroadcasts(msgs);tEl.value='';txEl.value='';
   DB.keys().filter(function(k){return k.startsWith('push:sub:');}).forEach(function(k){
-    var sub=DB.get(k); if(sub) sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke',(title?title+': ':'')+text,'broadcast');
+    var sub=DB.get(k);if(sub) sendPushToClient(sub,'🌿 Be Fit Marke','Nieuw bericht beschikbaar','broadcast');
   });
-  showToast('\u2713 Bericht verstuurd');render();}
+  showToast('✓ Bericht verstuurd');render();}
 function deleteBroadcast(id){saveBroadcasts(getBroadcasts().filter(function(m){return m.id!==id;}));showToast('Bericht verwijderd');render();}
 
 function chatKey(email){return 'chat:'+email;}
@@ -250,7 +299,7 @@ function chatFmtTime(ts){var d=new Date(ts);return d.getDate()+'/'+(d.getMonth()
 function sendChatMsg(){var inp=document.getElementById('chat-inp'),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(S.user.email);msgs.push({from:'client',name:S.user.name,text:txt,ts:Date.now()});saveChat(S.user.email,msgs);inp.value='';render();setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);}
 function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);
   var csub=DB.get('push:sub:'+email);
-  if(csub) sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');
+  if(csub) sendPushToClient(csub,'💬 Be Fit Marke','Nieuw bericht van je diëtiste!','chat');
   inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
 
 function mealBlock(k){
@@ -364,30 +413,17 @@ function renderAdminClient(c,i){
     :status==='rejected'
     ?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>'
     :'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
-  var aBtns;
-  if(status==='pending'){
-    aBtns='<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;">'
-      +'<button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button>'
-      +'<button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button>'
-      +'</div>';
-  }else if(status==='approved'){
-    aBtns='<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;">'
-      +'<button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toegang intrekken</button>'
-      +'<button onclick="event.stopPropagation();if(confirm(\'Account definitief verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1; Verwijderen</button>'
-      +'</div>';
-  }else{
-    aBtns='<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;">'
-      +'<button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button>'
-      +'<button onclick="event.stopPropagation();if(confirm(\'Account definitief verwijderen?\'))deleteClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1; Verwijderen</button>'
-      +'</div>';
-  }
+  var aBtns=status==='pending'
+    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button></div>'
+    :status==='approved'
+    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toegang intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Account definitief verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1; Verwijderen</button></div>'
+    :'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button><button onclick="event.stopPropagation();if(confirm(\'Account definitief verwijderen?\'))deleteClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1; Verwijderen</button></div>';
   return '<div class="admin-client-card" onclick="S.adminOpen=S.adminOpen==='+i+'?null:'+i+';render()">'
     +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+'</div>'
     +'<div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><div style="font-size:11px;color:#9E9580;flex:1">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
     +'<div style="font-size:10px;font-weight:700">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet</span>'):'')+'</div>'
     +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700">&#x270D;&#xFE0F; FB</div>':'')+badge
-    +'</div>'
-    +'<div class="admin-client-detail '+(open?'open':'')+'">'+((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
+    +'</div><div class="admin-client-detail '+(open?'open':'')+'">'+((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
     +aBtns+(status==='approved'?chatSec:'')+'</div></div>';
 }
 
@@ -414,7 +450,7 @@ function saveWeight(dateStr,kg){
   if(idx>=0){list[idx].kg=kg;}else{list.push({date:dateStr,kg:kg});}
   list.sort(function(a,b){return a.date.localeCompare(b.date);});
   DB.set('weights:'+S.user.email,list);
-  showToast('\u2713 Gewicht opgeslagen');render();
+  showToast('✓ Gewicht opgeslagen');render();
 }
 function deleteWeight(dateStr){
   var list=getWeights(S.user.email).filter(function(w){return w.date!==dateStr;});
@@ -422,40 +458,32 @@ function deleteWeight(dateStr){
   showToast('Meting verwijderd');render();
 }
 function weightBlock(){
-  var list=getWeights(S.user.email);
-  var todayStr=today();
+  var list=getWeights(S.user.email),todayStr=today();
   var existing=list.find(function(w){return w.date===todayStr;});
-  var entryCard='<div class="card">'
-    +'<div class="card-head"><div class="card-icon-box">&#x2696;&#xFE0F;</div><span class="card-title">Gewicht opvolgen</span></div>'
+  var entryCard='<div class="card"><div class="card-head"><div class="card-icon-box">&#x2696;&#xFE0F;</div><span class="card-title">Gewicht opvolgen</span></div>'
     +'<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">'
-      +'<div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Datum</div>'
-        +'<input type="date" id="w-date" value="'+todayStr+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
-      +'</div>'
-      +'<div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Gewicht (kg)</div>'
-        +'<input type="number" id="w-kg" step="0.1" min="20" max="300" placeholder="bv. 68.5" value="'+(existing?existing.kg:'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;"/>'
-      +'</div>'
-    +'</div>'
+    +'<div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Datum</div>'
+    +'<input type="date" id="w-date" value="'+todayStr+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div>'
+    +'<div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Gewicht (kg)</div>'
+    +'<input type="number" id="w-kg" step="0.1" min="20" max="300" placeholder="bv. 68.5" value="'+(existing?existing.kg:'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;"/></div></div>'
     +'<button onclick="var d=document.getElementById(\'w-date\').value,k=parseFloat(document.getElementById(\'w-kg\').value);if(d&&k>0)saveWeight(d,k);else showToast(\'Vul datum en gewicht in\');" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button>'
     +(existing?'<div style="font-size:11px;color:#4A8E7B;text-align:center;margin-top:8px;">&#x2713; Vandaag al ingegeven: <strong>'+existing.kg+' kg</strong></div>':'')
     +'</div>';
   if(!list.length) return entryCard+'<div class="card" style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:10px;">&#x2696;&#xFE0F;</div><div style="font-family:\'Playfair Display\',serif;font-size:15px;color:#1E3D20;margin-bottom:6px;">Nog geen metingen</div><div style="font-size:12px;color:#9E9580;">Voeg je eerste meting toe hierboven.</div></div>';
-  var first=list[0],last=list[list.length-1];
-  var diff=Math.round((last.kg-first.kg)*10)/10;
+  var first=list[0],last=list[list.length-1],diff=Math.round((last.kg-first.kg)*10)/10;
   var diffColor=diff<0?'#2A6030':diff>0?'#C0392B':'#9E9580';
-  var statsHtml='<div class="card" style="padding:14px 16px;">'
-    +'<div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid #EAE2D0;">'
-    +'<div style="flex:1;padding:12px 10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Huidig</div><div style="font-size:20px;font-weight:700;color:#1E3D20;">'+last.kg+'</div><div style="font-size:10px;color:#9E9580;">kg</div></div>'
-    +'<div style="flex:1;padding:12px 10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Start</div><div style="font-size:20px;font-weight:700;color:#1E3D20;">'+first.kg+'</div><div style="font-size:10px;color:#9E9580;">kg</div></div>'
-    +'<div style="flex:1;padding:12px 10px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Evolutie</div><div style="font-size:20px;font-weight:700;color:'+diffColor+';">'+(diff>0?'+':'')+diff+'</div><div style="font-size:10px;color:#9E9580;">'+list.length+' meting'+(list.length!==1?'en':'')+'</div></div>'
+  var statsHtml='<div class="card" style="padding:14px 16px;"><div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid #EAE2D0;">'
+    +'<div style="flex:1;padding:12px 10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:4px;">Huidig</div><div style="font-size:20px;font-weight:700;color:#1E3D20;">'+last.kg+'</div><div style="font-size:10px;color:#9E9580;">kg</div></div>'
+    +'<div style="flex:1;padding:12px 10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:4px;">Start</div><div style="font-size:20px;font-weight:700;color:#1E3D20;">'+first.kg+'</div><div style="font-size:10px;color:#9E9580;">kg</div></div>'
+    +'<div style="flex:1;padding:12px 10px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:4px;">Evolutie</div><div style="font-size:20px;font-weight:700;color:'+diffColor+';">'+(diff>0?'+':'')+diff+'</div><div style="font-size:10px;color:#9E9580;">'+list.length+' meting'+(list.length!==1?'en':'')+'</div></div>'
     +'</div></div>';
   var chartCard='<div class="card" style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:12px;">Gewichtsevolutie</div><canvas id="weight-chart" style="display:block;width:100%;"></canvas></div>';
   var logRows=list.slice().reverse().slice(0,15).map(function(w){
-    var d=new Date(w.date);
-    var ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+    var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
     var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;
     var delta=prev?Math.round((w.kg-prev.kg)*10)/10:null;
-    var deltaHtml=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+w.kg+' kg'+deltaHtml+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';
+    var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+w.kg+' kg'+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';
   }).join('');
   var logCard='<div class="card"><div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:600;color:#1E3D20;margin-bottom:10px;">Metingen</div>'+logRows+'</div>';
   setTimeout(function(){
@@ -469,8 +497,7 @@ function weightBlock(){
     ctx.strokeStyle='#EAE2D0';ctx.lineWidth=1;
     for(var g=0;g<=4;g++){var gy=pad.t+g/4*gh;ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(pad.l+gw,gy);ctx.stroke();ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='right';ctx.fillText(Math.round((maxK-(maxK-minK)*g/4)*10)/10,pad.l-4,gy+3);}
     ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='center';
-    var step=Math.max(1,Math.floor(pts.length/5));
-    pts.forEach(function(p,i){if(i===0||i===pts.length-1||i%step===0){var d=new Date(p.date);ctx.fillText(d.getDate()+'/'+(d.getMonth()+1),xP(i),H-pad.b+13);}});
+    pts.forEach(function(p,i){if(i===0||i===pts.length-1){var d=new Date(p.date);ctx.fillText(d.getDate()+'/'+(d.getMonth()+1),xP(i),H-pad.b+13);}});
     if(pts.length>1){ctx.beginPath();ctx.moveTo(xP(0),yP(pts[0].kg));pts.forEach(function(p,i){if(i>0)ctx.lineTo(xP(i),yP(p.kg));});ctx.lineTo(xP(pts.length-1),pad.t+gh);ctx.lineTo(xP(0),pad.t+gh);ctx.closePath();ctx.fillStyle='rgba(42,96,48,0.1)';ctx.fill();}
     ctx.strokeStyle='#2A6030';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.beginPath();pts.forEach(function(p,i){if(i===0)ctx.moveTo(xP(i),yP(p.kg));else ctx.lineTo(xP(i),yP(p.kg));});ctx.stroke();
     pts.forEach(function(p,i){ctx.beginPath();ctx.arc(xP(i),yP(p.kg),4,0,2*Math.PI);ctx.fillStyle='#2A6030';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();});
@@ -478,7 +505,6 @@ function weightBlock(){
   },80);
   return entryCard+statsHtml+chartCard+logCard;
 }
-
 function render(){
   var app=document.getElementById('app');
 
