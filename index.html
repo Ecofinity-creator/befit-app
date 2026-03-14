@@ -188,7 +188,7 @@ function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:');}).map(function(k){return DB.get(k);}).filter(Boolean).sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
 async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);if(adm&&pass===getAdminPass(email)){S.user={email:email,name:adm.name,isAdmin:true};S.screen='admin';S.adminTab='clients';loadAdminClients();render();return;}err.textContent='Even geduld\u2026';err.classList.add('show');
-  await syncUserFromFirestore(email);
+  try{var _snap=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_snap.exists) localStorage.setItem('user:'+email,_snap.data().v);}catch(_e){ await syncUserFromFirestore(email); }
   var ud=DB.get('user:'+email);
   err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
