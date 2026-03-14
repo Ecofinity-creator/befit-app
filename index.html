@@ -232,8 +232,8 @@ function showToast(msg){msg=msg||'\u2713 Opgeslagen';var t=document.getElementBy
 function closeNotif(){document.getElementById('notif-bar').style.display='none';}
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';localNotif('Be Fit Marke',msg,'befit-reminder');}
 
-function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+today(),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,ts:Date.now()});showToast();}
-function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];}}
+function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+today(),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
+function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:');}).map(function(k){return DB.get(k);}).filter(Boolean).sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
 async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);if(adm&&pass===getAdminPass(email)){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');
@@ -380,7 +380,13 @@ function summaryBlock(){
     h+='<div class="sum-row" style="flex-direction:column;align-items:flex-start;gap:6px;"><div style="display:flex;gap:10px;width:100%;align-items:flex-start;"><div class="sum-dot" style="background:'+dc+';margin-top:5px;flex-shrink:0;"></div><div style="flex:1"><div class="sum-lbl">'+CFG[k].icon+' '+CFG[k].label+'</div><div class="sum-val">'+(ms.length?ms.map(function(x){return '<span style="color:#9E9580;font-size:11px">'+getTimeStr(x)+'</span> '+x.t;}).join('<br>'):'<span style="color:#C5BC9E;font-style:italic;font-size:12px">Niet ingevuld</span>')+(sn.length?'<br><span style="color:#C9A84C;font-size:11px">\uD83C\uDF4E Tussendoor: '+sn.map(function(x){return '<span style="color:#9E9580">'+getTimeStr(x)+'</span> '+x.t;}).join(', ')+'</span>':'')+'</div></div></div>'+(mealFb?'<div style="margin-left:18px;width:calc(100% - 18px);background:#FDFAF5;border-left:3px solid '+dc+';border-radius:0 8px 8px 0;padding:9px 12px;"><div style="font-size:10px;font-weight:700;color:'+dc+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">\uD83D\uDCAC Feedback Be Fit</div><div style="font-size:12px;color:#2C3E28;line-height:1.7;font-style:italic;">&ldquo;'+mealFb+'&rdquo;</div><div style="font-size:10px;color:#9E9580;margin-top:4px;">'+(fb.adminName||'Di\u00ebtiste')+' &middot; '+fbDate+'</div></div>':'')+'</div>';
   });
   h+='<div class="sum-row"><div class="sum-dot" style="background:#3A8FBD"></div><div style="flex:1"><div class="sum-lbl">\uD83D\uDCA7 Water</div><div class="sum-val">'+mlTotal+' ml</div></div></div>';
-  if(S.reminders.length)h+='<div class="sum-row"><div class="sum-dot" style="background:#C9A84C"></div><div style="flex:1"><div class="sum-lbl">\uD83D\uDCC5 Herinneringen</div><div class="sum-val">'+S.reminders.map(function(r){return r.time+' &mdash; '+r.desc;}).join('<br>')+'</div></div></div>';
+  if(S.activities&&S.activities.length){
+    h+='<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F3C3;</div><span class="card-title">Beweging</span>'
+      +'<span style="margin-left:auto;font-size:11px;font-weight:700;color:#2A6030;background:#EAF4EE;border-radius:20px;padding:3px 10px;">'+(S.activities.reduce(function(s,a){return s+a.dur;},0))+' min totaal</span></div>'
+      +S.activities.map(function(a){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F0E6;"><span style="flex:1;font-size:13px;color:#1E3D20;">'+a.type+'</span><span style="font-size:12px;font-weight:700;color:#2A6030;">'+a.dur+' min</span></div>';}).join('')
+      +'</div>';
+  }
+  if(S.reminders.length)h+='<div class="sum-row"><div class="sum-dot" style="background:#C9A84C"></div><div style="flex:1"><div class="sum-lbl">\uD83D\uDCC5 Herinneringen</div><div class="sum-val">'+S.reminders.map(function(r){return r.time+' &mdash; '+r.desc;}).join('<br>')+(list.some(function(p){return p.fat!=null;})?'<div style="flex:1;padding:12px 10px;text-align:center;border-left:1px solid #EAE2D0;">'+'<div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Vetmassa</div>'+'<div style="font-size:20px;font-weight:700;color:#C0392B;">'+list.filter(function(p){return p.fat!=null;}).slice(-1)[0].fat+'</div>'+'<div style="font-size:10px;color:#9E9580;">%</div></div>':'')+'</div></div></div>';
   h+='</div>';return h;
 }
 
@@ -426,7 +432,18 @@ function renderAdminClient(c,i){
   }else{det='<span style="color:#9E9580;font-style:italic;font-size:12px">Vandaag nog niets ingegeven.</span>';}
   var cm=getChat(c.email),cb=cm.length?cm.map(function(m){return '<div class="chat-bubble '+m.from+'" style="max-width:90%">'+(m.from==='admin'?'<div class="cb-name">\uD83C\uDF3F '+m.name+'</div>':'<div class="cb-name" style="color:#C9A84C;">'+m.name+'</div>')+m.text+'<span class="cb-time">'+chatFmtTime(m.ts)+'</span></div>';}).join(''):'<div style="font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:16px;">Nog geen berichten</div>';
   var sOC2="event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")",kd="if(event.key==='Enter'){event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")}";
-  var chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
+  // Fat% entry for admin
+  var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
+  var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+    +'<div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa ingeven</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;">'
+    +'<input type="date" id="fat-date-'+i+'" value="'+today()+'" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
+    +'<input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/>'
+    +'<button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button>'
+    +'</div>'
+    +(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste meting: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')
+    +'</div>';
+  chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
   var unread=cm.filter(function(m){return m.from==='client';}).length,lm=cm[cm.length-1],ans=lm&&lm.from==='admin';
   var badge=unread?'<div style="font-size:10px;color:#fff;background:'+(ans?'#2A6030':'#C0392B')+';border-radius:10px;padding:1px 6px;font-weight:700;">\uD83D\uDCAC '+(ans?'\u2713':'!')+'</div>':'';
   var hasData=d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0);
@@ -446,7 +463,7 @@ function renderAdminClient(c,i){
     +'<div style="font-size:10px;font-weight:700">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet</span>'):'')+'</div>'
     +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700">&#x270D;&#xFE0F; FB</div>':'')+badge
     +'</div><div class="admin-client-detail '+(open?'open':'')+'">'+((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
-    +aBtns+(status==='approved'?chatSec:'')+'</div></div>';
+    +aBtns+(status==='approved'?fatSec+chatSec:'')+'</div></div>';
 }
 
 function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
@@ -511,6 +528,7 @@ function weightBlock(){
   setTimeout(function(){
     var canvas=document.getElementById('weight-chart');if(!canvas)return;
     var ctx=canvas.getContext('2d'),W=canvas.clientWidth||300,H=210;
+    var hasFat=list.some(function(p){return p.fat!=null;});
     canvas.width=W;canvas.height=H;
     var pts=list,minK=Math.min.apply(null,pts.map(function(p){return p.kg;}))-1.5,maxK=Math.max.apply(null,pts.map(function(p){return p.kg;}))+1.5;
     var pad={t:24,r:16,b:36,l:46},gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;
@@ -524,6 +542,57 @@ function weightBlock(){
     ctx.strokeStyle='#2A6030';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.beginPath();pts.forEach(function(p,i){if(i===0)ctx.moveTo(xP(i),yP(p.kg));else ctx.lineTo(xP(i),yP(p.kg));});ctx.stroke();
     pts.forEach(function(p,i){ctx.beginPath();ctx.arc(xP(i),yP(p.kg),4,0,2*Math.PI);ctx.fillStyle='#2A6030';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();});
     if(pts.length){var li=pts.length-1;ctx.fillStyle='#1E3D20';ctx.font='bold 11px Lato,sans-serif';ctx.textAlign='center';ctx.fillText(pts[li].kg+' kg',xP(li),yP(pts[li].kg)-10);}
+    // Fat% second axis
+    if(hasFat){
+      var fatPts=pts.filter(function(p){return p.fat!=null;});
+      var minF=Math.min.apply(null,fatPts.map(function(p){return p.fat;}))-2;
+      var maxF=Math.max.apply(null,fatPts.map(function(p){return p.fat;}))+2;
+      function yF(f){return pad.t+gh-(f-minF)/(maxF-minF||1)*gh;}
+      // Y axis labels right side
+      ctx.fillStyle='#C0392B';ctx.font='10px Lato,sans-serif';ctx.textAlign='left';
+      for(var g2=0;g2<=4;g2++){
+        var fLbl=Math.round((maxF-(maxF-minF)*g2/4)*10)/10;
+        ctx.fillText(fLbl+'%',pad.l+gw+4,pad.t+g2/4*gh+3);
+      }
+      // Fill area
+      if(fatPts.length>1){
+        ctx.beginPath();
+        fatPts.forEach(function(p,i){
+          var xi=pts.indexOf(p);
+          if(i===0)ctx.moveTo(xP(xi),yF(p.fat));else ctx.lineTo(xP(xi),yF(p.fat));
+        });
+        ctx.lineTo(xP(pts.indexOf(fatPts[fatPts.length-1])),pad.t+gh);
+        ctx.lineTo(xP(pts.indexOf(fatPts[0])),pad.t+gh);
+        ctx.closePath();
+        ctx.fillStyle='rgba(192,57,43,0.07)';ctx.fill();
+      }
+      // Line
+      ctx.strokeStyle='#C0392B';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.lineJoin='round';
+      ctx.beginPath();
+      fatPts.forEach(function(p,i){
+        var xi=pts.indexOf(p);
+        if(i===0)ctx.moveTo(xP(xi),yF(p.fat));else ctx.lineTo(xP(xi),yF(p.fat));
+      });
+      ctx.stroke();ctx.setLineDash([]);
+      // Dots
+      fatPts.forEach(function(p){
+        var xi=pts.indexOf(p);
+        ctx.beginPath();ctx.arc(xP(xi),yF(p.fat),3.5,0,2*Math.PI);
+        ctx.fillStyle='#C0392B';ctx.fill();
+        ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      });
+      // Last fat label
+      var lf=fatPts[fatPts.length-1],lfi=pts.indexOf(lf);
+      ctx.fillStyle='#C0392B';ctx.font='bold 11px Lato,sans-serif';ctx.textAlign='center';
+      ctx.fillText(lf.fat+'%',xP(lfi),yF(lf.fat)-10);
+      // Legend
+      ctx.font='10px Lato,sans-serif';ctx.textAlign='left';
+      ctx.fillStyle='#2A6030';ctx.fillRect(pad.l,pad.t-12,12,4);
+      ctx.fillStyle='#1E3D20';ctx.fillText('Gewicht',pad.l+15,pad.t-8);
+      ctx.strokeStyle='#C0392B';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.moveTo(pad.l+70,pad.t-10);ctx.lineTo(pad.l+82,pad.t-10);ctx.stroke();
+      ctx.setLineDash([]);ctx.fillStyle='#C0392B';ctx.fillText('Vetmassa',pad.l+85,pad.t-8);
+    }
   },80);
   return entryCard+statsHtml+chartCard+logCard;
 }
@@ -565,6 +634,45 @@ function saveProfile(){
   S.user.name=name;
   showToast('\u2713 Profiel opgeslagen');
   render();
+}
+var ACTIVITIES=['&#x1F6B6; Wandelen','&#x1F6B4; Fietsen','&#x1F3CA; Zwemmen','&#x1F3C3; Lopen/Joggen','&#x1F3CB; Fitness','&#x1F9D8; Yoga/Pilates','&#x26BD; Sport','&#x1F3D4; Wandelen in natuur','&#x1F4AA; Krachttraining','Andere'];
+function addActivity(){
+  var type=document.getElementById('act-type').value;
+  var dur=parseInt(document.getElementById('act-dur').value);
+  if(!dur||dur<1){showToast('Vul een geldige duur in');return;}
+  S.activities=S.activities||[];
+  S.activities.push({type:type,dur:dur,ts:Date.now()});
+  saveUserData();
+  document.getElementById('act-dur').value='';
+  render();
+}
+function removeActivity(i){
+  S.activities.splice(i,1);
+  saveUserData();
+  render();
+}
+function activityBlock(){
+  var acts=S.activities||[];
+  var totalMin=acts.reduce(function(s,a){return s+a.dur;},0);
+  var opts=ACTIVITIES.map(function(a){return '<option>'+a+'</option>';}).join('');
+  var rows=acts.map(function(a,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #F5F0E6;">'
+      +'<span style="font-size:13px;flex:1;color:#1E3D20;">'+a.type+'</span>'
+      +'<span style="font-size:12px;font-weight:700;color:#2A6030;background:#EAF4EE;border-radius:20px;padding:2px 10px;">'+a.dur+' min</span>'
+      +'<span onclick="removeActivity('+i+')" style="color:#C0392B;cursor:pointer;font-size:16px;padding:2px 6px;">&#x00D7;</span>'
+      +'</div>';
+  }).join('');
+  return '<div class="card">'
+    +'<div class="card-head"><div class="card-icon-box">&#x1F3C3;</div><span class="card-title">Beweging vandaag</span>'
+    +(totalMin>0?'<span style="margin-left:auto;font-size:11px;font-weight:700;color:#2A6030;background:#EAF4EE;border-radius:20px;padding:3px 10px;">'+totalMin+' min totaal</span>':'')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px;">'
+    +'<select id="act-type" style="flex:1;border:1px solid #DDD4C0;border-radius:9px;padding:9px 10px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;">'+opts+'</select>'
+    +'<input id="act-dur" type="number" min="1" max="600" placeholder="min" style="width:72px;border:1px solid #DDD4C0;border-radius:9px;padding:9px 10px;font-size:14px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;"/>'
+    +'<button onclick="addActivity()" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 14px;font-size:18px;cursor:pointer;">+</button>'
+    +'</div>'
+    +(rows?rows:'<div style="font-size:12px;color:#9E9580;text-align:center;padding:10px 0;">Nog geen activiteiten vandaag</div>')
+    +'</div>';
 }
 function render(){
   var app=document.getElementById('app');
