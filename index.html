@@ -70,7 +70,7 @@ body{font-family:'Lato',sans-serif;background:linear-gradient(160deg,#1E3D20 0%,
 .empty{font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:10px 0;}
 .timer-strip{display:flex;align-items:center;gap:8px;background:#F0FFF4;border-radius:9px;padding:8px 12px;margin-top:10px;font-size:12px;}
 .ts-txt{flex:1;color:#2A6030;}
-
+.btn-start{background:#2A6030;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;}
 .countdown{font-weight:700;color:#2A6030;font-size:14px;}
 .snack-card{background:#FFFCF0;border:1px solid #EDE0A0;border-radius:14px;padding:14px;margin-top:4px;margin-bottom:14px;}
 .snack-tag{font-size:11px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;}
@@ -134,28 +134,20 @@ async function subscribePush(){if(!('PushManager' in window))return null;try{var
 async function requestNotifPermission(){if(!('Notification' in window))return;if(Notification.permission==='default'){var p=await Notification.requestPermission();if(p==='granted')subscribePush();}else if(Notification.permission==='granted')subscribePush();}
 function localNotif(title,body,tag){if(Notification.permission!=='granted')return;try{navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});});}catch(e){}}
 function sendPushToClient(sub,title,body,tag){var backendUrl=DB.get('push:backend:url');if(backendUrl)fetch(backendUrl+'/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub,title:title,body:body,tag:tag})}).catch(function(){});}
-function isAnalyseEnabled(email){
-  var ud=DB.get('user:'+(email||S.user.email));
-  return ud&&ud.analyseEnabled===true;
-}
-function toggleAnalyse(email){
-  var ud=DB.get('user:'+email);if(!ud)return;
-  ud.analyseEnabled=!ud.analyseEnabled;
-  DB.set('user:'+email,ud);
-  showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');
-  loadAdminClients();render();
-}
-function getMealAnalyseKey(email,dateStr,meal){
-  return 'analyse:'+email+':'+dateStr+':'+meal;
-}
-function mealAlreadyAnalysed(email,dateStr,meal){
-  return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;
-}
 function getApiKey(){return DB.get('anthropic:apikey')||'';}
 function saveApiKey(){var k=document.getElementById('api-key-input').value.trim();if(!k){showToast('Vul een API-sleutel in');return;}DB.set('anthropic:apikey',k);showToast('\u2713 API-sleutel opgeslagen');render();}
 function getExtraAdmins(){return DB.get('extra:admins')||[];}
 function saveExtraAdmin(){var name=document.getElementById('new-admin-name').value.trim(),email=document.getElementById('new-admin-email').value.trim().toLowerCase(),pass=document.getElementById('new-admin-pass').value;if(!name||!email||!pass){showToast('Vul alle velden in');return;}if(pass.length<4){showToast('Wachtwoord min. 4 tekens');return;}var list=getExtraAdmins();if(list.find(function(a){return a.email===email;})){showToast('E-mail bestaat al');return;}list.push({email:email,name:name,pass:btoa(pass),created:Date.now()});DB.set('extra:admins',list);DB.set('adminpass:'+email,btoa(pass));showToast('\u2713 Di\u00ebtiste aangemaakt');render();}
 function deleteExtraAdmin(email){var list=getExtraAdmins().filter(function(a){return a.email!==email;});DB.set('extra:admins',list);DB.del('adminpass:'+email);showToast('Di\u00ebtiste verwijderd');render();}
+function isAnalyseEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return ud&&ud.analyseEnabled===true;}
+function toggleAnalyse(email){var ud=DB.get('user:'+email);if(!ud)return;ud.analyseEnabled=!ud.analyseEnabled;DB.set('user:'+email,ud);showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');loadAdminClients();render();}
+function getMealAnalyseKey(email,dateStr,meal){return 'analyse:'+email+':'+dateStr+':'+meal;}
+function mealAlreadyAnalysed(email,dateStr,meal){return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;}
+function toggleChat(email){var ud=DB.get('user:'+email);if(!ud)return;ud.chatEnabled=ud.chatEnabled===false?true:false;DB.set('user:'+email,ud);showToast(ud.chatEnabled===false?'Chat uitgeschakeld':'Chat ingeschakeld');loadAdminClients();render();}
+function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub)sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd!','login');}
+function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Ingetrokken');loadAdminClients();render();}
+function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Verwijderd');loadAdminClients();render();}
+setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
 const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'}];
 const SUPER_ADMIN='delphine@be-fit.be';
 function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
@@ -163,45 +155,17 @@ function findAdmin(e){var b=ADMINS.find(function(a){return a.email===e;});if(b)r
 const SHAPEVIEW='https://planner.shapeview.be/?id=5ee2235fda862';
 const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghurt, fruit...'},lunch:{label:'Middagmaal',icon:'\u2600\uFE0F',ph:'bv. salade, soep, broodje...'},evening:{label:'Avondmaal',icon:'\uD83C\uDF19',ph:'bv. pasta, vis, groenten...'}};
 
-var firebaseConfig={
-  apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",
-  authDomain:"befit-marke.firebaseapp.com",
-  projectId:"befit-marke",
-  storageBucket:"befit-marke.firebasestorage.app",
-  messagingSenderId:"141778728988",
-  appId:"1:141778728988:web:1df297f0142176cb6a07d9"
-};
+var firebaseConfig={apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",authDomain:"befit-marke.firebaseapp.com",projectId:"befit-marke",storageBucket:"befit-marke.firebasestorage.app",messagingSenderId:"141778728988",appId:"1:141778728988:web:1df297f0142176cb6a07d9"};
 firebase.initializeApp(firebaseConfig);
 var fsdb=firebase.firestore();
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
-const DB={
-  get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},
-  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},
-  del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},
-  keys:function(){return Object.keys(localStorage);}
-};
-// Migrate Amber to extra admins if needed
-setTimeout(function(){
-  var extras=DB.get('extra:admins')||[];
-  var amberExists=extras.find(function(a){return a.email==='amber@be-fit.be';});
-  if(!amberExists){
-    extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});
-    DB.set('extra:admins',extras);
-    DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));
-  }
-},2000);
-async function syncFromFirestore(email){
-  var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins"];
-  for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds);}
-  await Promise.all(keys.map(async function(k){try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();if(snap.exists)localStorage.setItem(k,snap.data().v);}catch(e){}}));
-}
-async function syncAllFromFirestore(){
-  try{var snap=await fsdb.collection("data").get();snap.forEach(function(doc){localStorage.setItem(fromFsKey(doc.id),doc.data().v);});}catch(e){}
-}
+const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
+async function syncFromFirestore(email){var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins"];for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds);["morning","lunch","evening"].forEach(function(k){var ak="analyse:"+email+":"+ds+":"+k;keys.push(ak);});}await Promise.all(keys.map(async function(k){try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();if(snap.exists)localStorage.setItem(k,snap.data().v);}catch(e){}}));}
+async function syncAllFromFirestore(){try{var snap=await fsdb.collection("data").get();snap.forEach(function(doc){localStorage.setItem(fromFsKey(doc.id),doc.data().v);});}catch(e){}}
 
 
-var S={screen:'login',user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
+var S={screen:'login',user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,showInvite:false,summaryDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -222,8 +186,8 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
-  if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring van je diëtiste.';err.classList.add('show');return;}
-  if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd. Neem contact op met Be Fit Marke.';err.classList.add('show');return;}
+  if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
+  if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
   S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
   syncFromFirestore(email).then(function(){loadUserData();render();});
@@ -233,12 +197,8 @@ function doForgot(){var email=document.getElementById('fg-email').value.trim().t
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
 function logout(){clearInterval(S._reminderInterval);S.user=null;S.screen='login';render();}
 
-function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Aanmelding goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub)sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd!','login');}
-function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Toegang ingetrokken');loadAdminClients();render();}
-function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Account verwijderd');loadAdminClients();render();}
-function toggleChat(email){var ud=DB.get('user:'+email);if(!ud)return;ud.chatEnabled=ud.chatEnabled===false?true:false;DB.set('user:'+email,ud);showToast(ud.chatEnabled===false?'Chat uitgeschakeld':'Chat ingeschakeld');loadAdminClients();render();}
 function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k])startTimer(k);render();}
-function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
+function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();if(!S.timers[k])startTimer(k);render();}
 function updateMealTime(k,i,val){S.meals[k][i].timeStr=val;saveUserData();}
 function addSnack(k){var inp=document.getElementById('snack-in-'+k),tInp=document.getElementById('snack-time-'+k),v=(inp.value||'').trim();if(!v)return;S.snacks[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();render();}
 function delSnack(k,i){S.snacks[k].splice(i,1);saveUserData();render();}
@@ -247,7 +207,7 @@ function addReminder(){var desc=document.getElementById('rem-desc'),time=documen
 function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
 
 function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
-function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _uname=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Hallo '+_uname+'! Het is tijd voor een tussendoortje \u2014 je '+_ml+' is al 2.5 uur geleden.';showNotif(_msg);localNotif('Be Fit Marke \uD83C\uDF4E','Hallo '+_uname+'! Tijd voor een tussendoortje na je '+_ml+'.','snack-'+k);var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,'Be Fit Marke \uD83C\uDF4E','Hallo '+_uname+'! Tijd voor een tussendoortje na je '+_ml+'.','snack-reminder');S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
+function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _uname=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Hallo '+_uname+'! Tijd voor een tussendoortje na je '+_ml+'.';showNotif(_msg);localNotif('Be Fit Marke \uD83C\uDF4E','Hallo '+_uname+'! Tijd voor een tussendoortje na je '+_ml+'.','snack-'+k);var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,'Be Fit Marke \uD83C\uDF4E','Hallo '+_uname+'! Tijd voor een tussendoortje na je '+_ml+'.','snack-reminder');S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 
 function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
 
@@ -282,13 +242,9 @@ function mealBlock(k){
     ?'<div style="margin:10px 0 4px 0;background:#FDFAF5;border-left:3px solid '+dc+';border-radius:0 8px 8px 0;padding:10px 14px;"><div style="font-size:10px;font-weight:700;color:'+dc+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">\uD83D\uDCAC Feedback Be Fit</div><div style="font-size:12px;color:#2C3E28;line-height:1.7;font-style:italic;">&ldquo;'+mealFb+'&rdquo;</div><div style="font-size:10px;color:#9E9580;margin-top:5px;">'+(fb.adminName||'Di\u00ebtiste')+' &middot; '+fbDate+'</div></div>'
     :'';
   var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
-  var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering volgt automatisch 2.5u na je eerste hap</span></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
+  var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering instellen (+\u00a02u na maaltijd)</span><button class="btn-start" onclick="startTimer(\''+k+'\')">Start</button></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
   var snHtml=ms.length?'<div class="snack-card"><div class="snack-tag">\uD83C\uDF4E Tussendoortje na '+c.label.toLowerCase()+'</div>'+(sn.length?sn.map(function(x,i){return '<div class="logged-item" style="background:#FFFCF0"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" oninput="updateSnackTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delSnack(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog geen tussendoortje ingegeven</div>')+'<div class="input-row"><input type="time" class="add-time" id="snack-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="snack-in-'+k+'" placeholder="bv. appel, nootjes..." onkeydown="if(event.key===\'Enter\')addSnack(\''+k+'\')" /><button class="btn-g btn-gold" onclick="addSnack(\''+k+'\')">+</button></div></div>':'';
-  var _anlBtn=isAnalyseEnabled&&isAnalyseEnabled()
-    ?(!mealAlreadyAnalysed(S.user.email,today(),k)
-      ?'<button onclick="S.tab=\'analyse\';render()" style="margin-left:auto;background:rgba(201,168,76,0.15);color:#C9A84C;border:1px solid rgba(201,168,76,0.5);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer</button>'      :'<span style="margin-left:auto;font-size:10px;color:#2A6030;font-weight:700;">&#x2713; Geanalyseerd</span>')
-    :'';
-  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+_anlBtn+''+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
 function waterBlock(){
@@ -305,13 +261,11 @@ function apptBlock(){
 
 function chatBlock(){
   var ud=DB.get('user:'+S.user.email);
-  if(ud&&ud.chatEnabled===false){
-    return '<div class="card" style="text-align:center;padding:40px 20px;">'
-      +'<div style="font-size:40px;margin-bottom:12px;">&#x1F4AC;</div>'
-      +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Chat niet beschikbaar</div>'
-      +'<div style="font-size:13px;color:#9E9580;">De chatfunctie is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
-      +'</div>';
-  }
+  if(ud&&ud.chatEnabled===false){return '<div class="card" style="text-align:center;padding:40px 20px;">'
+    +'<div style="font-size:40px;margin-bottom:12px;">&#x1F4AC;</div>'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Chat niet beschikbaar</div>'
+    +'<div style="font-size:13px;color:#9E9580;">De chatfunctie is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
+    +'</div>';}
   var msgs=getChat(S.user.email),changed=false;
   msgs.forEach(function(m){if(m.from==='admin'&&!m.read){m.read=true;changed=true;}});
   if(changed)saveChat(S.user.email,msgs);
@@ -371,6 +325,8 @@ function renderAdminBroadcasts(){
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'+'<button onclick="showInviteModal()" style="background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:14px;display:inline-flex;align-items:center;gap:6px;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+ch+'</div>';
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
+  return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Nieuws & Tips</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">Berichten worden automatisch zichtbaar bij alle klanten.</div><div class="card" style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">\u270D\uFE0F Nieuw bericht</div><div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;"><select id="bc-cat" onclick="event.stopPropagation()" style="border:1px solid #DDD4C0;border-radius:8px;padding:8px 10px;font-size:18px;background:#FDFAF5;outline:none;cursor:pointer;">'+cats.map(function(o){return '<option>'+o+'</option>';}).join('')+'</select><input id="bc-title" type="text" placeholder="Titel (optioneel)" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;"/></div><textarea id="bc-text" placeholder="Schrijf hier je tip, nieuwtje of motivatie..." onclick="event.stopPropagation()" style="width:100%;box-sizing:border-box;border:1px solid #DDD4C0;border-left:3px solid #C9A84C;border-radius:8px;padding:10px 13px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;resize:vertical;min-height:80px;line-height:1.7;"></textarea><button onclick="event.stopPropagation();postBroadcast()" style="margin-top:10px;background:#1E3D20;color:#F0EAD6;border:none;border-radius:8px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">\uD83D\uDCE3 Verstuur naar alle klanten</button></div>'+renderAdminBroadcasts()+'</div>';
+
   if(S.adminTab==='settings'){
     var apiKey=getApiKey(),extras=getExtraAdmins();
     var extraList=extras.length?extras.map(function(a){return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #F5F0E6;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#1E3D20;">'+a.name+'</div><div style="font-size:11px;color:#9E9580;">'+a.email+'</div></div><button onclick="if(confirm(\'Di\u00ebtiste verwijderen?\'))deleteExtraAdmin(\''+a.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Verwijder</button></div>';}).join(''):'<div style="font-size:12px;color:#9E9580;padding:10px 0;">Nog geen extra di\u00ebtistes.</div>';
@@ -391,7 +347,6 @@ function renderAdminTabContent(ch){
       +'<button onclick="saveExtraAdmin()" style="width:100%;background:#2A6030;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">+ Di\u00ebtiste aanmaken</button>'
       +'</div></div></div>';
   }
-  return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Nieuws & Tips</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">Berichten worden automatisch zichtbaar bij alle klanten.</div><div class="card" style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">\u270D\uFE0F Nieuw bericht</div><div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;"><select id="bc-cat" onclick="event.stopPropagation()" style="border:1px solid #DDD4C0;border-radius:8px;padding:8px 10px;font-size:18px;background:#FDFAF5;outline:none;cursor:pointer;">'+cats.map(function(o){return '<option>'+o+'</option>';}).join('')+'</select><input id="bc-title" type="text" placeholder="Titel (optioneel)" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;"/></div><textarea id="bc-text" placeholder="Schrijf hier je tip, nieuwtje of motivatie..." onclick="event.stopPropagation()" style="width:100%;box-sizing:border-box;border:1px solid #DDD4C0;border-left:3px solid #C9A84C;border-radius:8px;padding:10px 13px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;resize:vertical;min-height:80px;line-height:1.7;"></textarea><button onclick="event.stopPropagation();postBroadcast()" style="margin-top:10px;background:#1E3D20;color:#F0EAD6;border:none;border-radius:8px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">\uD83D\uDCE3 Verstuur naar alle klanten</button></div>'+renderAdminBroadcasts()+'</div>';
 }
 function renderAdminClient(c,i){
   var d=c.diary,fb=loadFeedback(c.email,today()),mlTotal=d?Math.round((d.water||0)*250):0;
@@ -399,12 +354,6 @@ function renderAdminClient(c,i){
   var mc={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
   var open=S.adminOpen===i,det='';
   var status=c.status||'approved';
-  // Load analyse results for this client
-  var anlResults={};
-  ['morning','lunch','evening'].forEach(function(k){
-    var r=DB.get(getMealAnalyseKey(c.email,today(),k));
-    if(r) anlResults[k]=r;
-  });
   if(d){
     ['morning','lunch','evening'].forEach(function(k){
       var ms=(d.meals||{})[k]||[],sn=(d.snacks||{})[k]||[],st=fb[k]||'',col=mc[k],fid='fb-'+i+'-'+k;
@@ -425,70 +374,49 @@ function renderAdminClient(c,i){
   }else{det='<span style="color:#9E9580;font-style:italic;font-size:12px">Vandaag nog niets ingegeven.</span>';}
   var cm=getChat(c.email),cb=cm.length?cm.map(function(m){return '<div class="chat-bubble '+m.from+'" style="max-width:90%">'+(m.from==='admin'?'<div class="cb-name">\uD83C\uDF3F '+m.name+'</div>':'<div class="cb-name" style="color:#C9A84C;">'+m.name+'</div>')+m.text+'<span class="cb-time">'+chatFmtTime(m.ts)+'</span></div>';}).join(''):'<div style="font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:16px;">Nog geen berichten</div>';
   var sOC2="event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")",kd="if(event.key==='Enter'){event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")}";
-  var anlKeys=Object.keys(anlResults);
-  var anlSec=anlKeys.length
-    ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
-    +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'
-    +anlKeys.map(function(k){
-      var r=anlResults[k];
-      var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';
-      var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';
-      return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;">'
-        +'<div style="display:flex;align-items:center;margin-bottom:5px;">'
-        +'<span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span>'
-        +'<span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span>'
-        +'</div>'
-        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
-        +(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')
-        +(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')
-        +(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')
-        +(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')
-        +'</div>'
-        +(r.tips&&r.tips.length?"+'<div style=\"font-size:10px;color:#856404;margin-top:4px;font-style:italic;\">\uD83D\uDCA1 '+r.tips[0]+'</div>'":'')
-        +'</div>';
-    }).join('')+'</div>'
-    :'';
-chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
+  var chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
   var unread=cm.filter(function(m){return m.from==='client';}).length,lm=cm[cm.length-1],ans=lm&&lm.from==='admin';
   var badge=unread?'<div style="font-size:10px;color:#fff;background:'+(ans?'#2A6030':'#C0392B')+';border-radius:10px;padding:1px 6px;font-weight:700;">\uD83D\uDCAC '+(ans?'\u2713':'!')+'</div>':'';
   var hasData=d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0);
-    var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
-  var aBtns=status==='pending'
-    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;flex-wrap:wrap;">'
-    +'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030':'#FFECEC;color:#C0392B')+';border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; '+(isAnalyseEnabled(c.email)?'Analyse aan':'Analyse uit')+'</button>'
-    +'<button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button></div>'
-    :status==='approved'
-    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();toggleChat(\''+c.email+'\')" style="background:'+(((DB.get('user:'+c.email)||{}).chatEnabled===false)?'#FFF3CD;color:#856404':'#E8F4EE;color:#2A6030')+';border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat '+(((DB.get('user:'+c.email)||{}).chatEnabled===false)?'aan':'uit')+'</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
-    :'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
-  // Fat% entry
-  var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
-  var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
     var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
   var anlOn=isAnalyseEnabled(c.email);
+  var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
+  var aBtns=status==='pending'
+    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button></div>'
+    :status==='approved'
+    ?'<div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
+    :'<div style="margin-top:8px;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
+  var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
+  var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
+  // Analyse results
+  var anlResults={};
+  ['morning','lunch','evening'].forEach(function(k){var r=DB.get(getMealAnalyseKey(c.email,today(),k));if(r)anlResults[k]=r;});
+  var anlKeys=Object.keys(anlResults);
+  var anlSec=anlKeys.length?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'+anlKeys.map(function(k){var r=anlResults[k];var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;"><div style="display:flex;align-items:center;margin-bottom:5px;"><span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span><span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;">'+(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')+(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')+(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')+(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')+'</div>'+(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:4px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')+'</div>';}).join('')+'</div>':'';
+  var cm=getChat(c.email),cb=cm.length?cm.map(function(m){return '<div class="chat-bubble '+m.from+'" style="max-width:90%">'+(m.from==='admin'?'<div class="cb-name">\uD83C\uDF3F '+m.name+'</div>':'<div class="cb-name" style="color:#C9A84C;">'+m.name+'</div>')+m.text+'<span class="cb-time">'+chatFmtTime(m.ts)+'</span></div>';}).join(''):'<div style="font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:16px;">Nog geen berichten</div>';
+  var sOC2="event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")",kd="if(event.key==='Enter'){event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")}";
+  var chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
+  var unread=cm.filter(function(m){return m.from==='client';}).length,lm=cm[cm.length-1],ans=lm&&lm.from==='admin';
+  var badge=unread?'<div style="font-size:10px;color:#fff;background:'+(ans?'#2A6030':'#C0392B')+';border-radius:10px;padding:1px 6px;font-weight:700;">\uD83D\uDCAC '+(ans?'\u2713':'!')+'</div>':'';
+  var hasData=d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0);
   return '<div class="admin-client-card" onclick="S.adminOpen=S.adminOpen==='+i+'?null:'+i+';render()">'
-    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
-    +'<div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge
-    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+'</div>'
     +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
     +(status==='approved'
       ?'<div style="display:flex;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
-      +'<button onclick="toggleChat(\''+c.email+'\')" '
-      +'style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
-      +'&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
-      +'<button onclick="toggleAnalyse(\''+c.email+'\')" '
-      +'style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
-      +'&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
+      +'<button onclick="toggleChat(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
+      +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
       +'</div>'
       :'')
     +'<div style="display:flex;align-items:center;gap:6px;">'
     +'<div style="font-size:10px;font-weight:700;flex:1">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet ingevuld</span>'):'')+'</div>'
     +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700;">\u270D\uFE0F Feedback</div>':'')+badge
     +'</div>'
-    +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
-    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
+    +'<div class="admin-client-detail '+(open?'open':'')+'">'+((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
     +(status==='approved'?aBtns+anlSec+fatSec+chatSec:'')
     +'</div></div>';
 }
+
 function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
   return '<div class="login-wrap">'
     +'<div class="login-logo-area">'+logoSVG(280)
@@ -682,7 +610,6 @@ function renderAnalyseResult(data){
 }
 
 async function runPhotoAnalyse(input){
-  if(!getApiKey()){showToast('Geen API-sleutel. Stel in via \u2699\uFE0F Instellingen in admin.');return;}
   var file=input.files&&input.files[0];
   if(!file){return;}
   // Read as base64
@@ -698,7 +625,7 @@ async function runPhotoAnalyse(input){
       var selDate=getSummaryDate();
       var resp=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},
+        headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({
           model:'claude-sonnet-4-6',
           max_tokens:600,
@@ -713,12 +640,8 @@ async function runPhotoAnalyse(input){
         })
       });
       var data=await resp.json();
-      if(data.error){showToast('API fout: '+data.error.message);S.photoPreview=null;S.analyseLoading=null;render();return;}
-      if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=null;render();return;}
       var text=data.content[0].text.replace(/```json|```/g,'').trim();
-      var jsonMatch=text.match(/\{[\s\S]*\}/);
-      if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=null;render();return;}
-      var result=JSON.parse(jsonMatch[0]);
+      var result=JSON.parse(text);
       result.fromPhoto=true;
       DB.set('analyse:'+S.user.email+':'+selDate,result);
     }catch(err){
@@ -739,10 +662,13 @@ async function runMealAnalyse(meal){
   var dm=diary.meals||{};
   var items=dm[meal]||[];
   if(!items.length){showToast('Geen items in deze maaltijd');return;}
-  // (Re-analysis allowed from meal screen)
+  // Check if already analysed
+  if(DB.get(getMealAnalyseKey(S.user.email,selDate,meal))){
+    showToast('Deze maaltijd werd al geanalyseerd');return;
+  }
   var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
   var mealName=mealNames[meal];
-  S.analyseLoading=meal;render();
+  S.analyseLoading=true;render();
   try{
     var prompt='Analyseer deze '+mealName+' van een persoon die werkt aan een gezonder eetpatroon:\n\n'
       +items.map(function(i){return '- '+i.t;}).join('\n')
@@ -759,27 +685,18 @@ async function runMealAnalyse(meal){
       })
     });
     var data=await resp.json();
-    // Check for API errors
-    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=null;render();return;}
-    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord van AI');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
-    // Extract JSON if there's surrounding text
-    var jsonMatch=text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=null;render();return;}
-    var result=JSON.parse(jsonMatch[0]);
+    var result=JSON.parse(text);
     result.meal=meal;
     result.mealName=mealName;
-    result.ts=Date.now();
-    result.byClient=S.user.name;
+    // Save per-meal cache — only once
     DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
   }catch(err){
-    console.error('Analyse error:',err);
-    showToast('Analyse mislukt: '+(err.message||'Onbekende fout'));
+    showToast('Analyse mislukt. Probeer opnieuw.');
   }
-  S.analyseLoading=null;render();
+  S.analyseLoading=false;render();
 }
 async function runAnalyse(){
-  if(!getApiKey()){showToast('Geen API-sleutel. Stel in via \u2699\uFE0F Instellingen in admin.');return;}
   var selDate=getSummaryDate(),isToday=selDate===today();
   var diary=isToday
     ?{meals:S.meals,snacks:S.snacks}
@@ -801,7 +718,7 @@ async function runAnalyse(){
       +'{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"korte uitleg","tips":["tip1","tip2","tip3"]}';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},
+      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:600,
@@ -810,27 +727,14 @@ async function runAnalyse(){
       })
     });
     var data=await resp.json();
-    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=false;render();return;}
-    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=false;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
-    var jsonMatch=text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=false;render();return;}
-    var result=JSON.parse(jsonMatch[0]);
+    var result=JSON.parse(text);
     DB.set('analyse:'+S.user.email+':'+selDate,result);
   }catch(e){
     showToast('Analyse mislukt. Probeer opnieuw.');
   }
   S.analyseLoading=false;render();
 }
-function getWeights(email){return DB.get('weights:'+(email||S.user.email))||[];}
-function saveWeight(dateStr,kg){var list=getWeights(S.user.email);var idx=list.findIndex(function(w){return w.date===dateStr;});if(idx>=0){list[idx].kg=kg;}else{list.push({date:dateStr,kg:kg});}list.sort(function(a,b){return a.date.localeCompare(b.date);});DB.set('weights:'+S.user.email,list);showToast('\u2713 Gewicht opgeslagen');render();}
-function deleteWeight(dateStr){var list=getWeights(S.user.email).filter(function(w){return w.date!==dateStr;});DB.set('weights:'+S.user.email,list);showToast('Meting verwijderd');render();}
-function saveFat(email,dateStr,fat){var list=getWeights(email);var idx=list.findIndex(function(w){return w.date===dateStr;});if(idx>=0){list[idx].fat=fat;}else{list.push({date:dateStr,kg:null,fat:fat});}list.sort(function(a,b){return a.date.localeCompare(b.date);});DB.set('weights:'+email,list);showToast('\u2713 Vetmassa opgeslagen');loadAdminClients();render();}
-var ACTIVITIES=['&#x1F6B6; Wandelen','&#x1F6B4; Fietsen','&#x1F3CA; Zwemmen','&#x1F3C3; Lopen/Joggen','&#x1F3CB; Fitness','&#x1F9D8; Yoga/Pilates','&#x26BD; Sport','&#x1F3D4; Wandelen natuur','&#x1F4AA; Krachttraining','Andere'];
-function addActivity(){var type=document.getElementById('act-type').value,dur=parseInt(document.getElementById('act-dur').value);if(!dur||dur<1){showToast('Vul een geldige duur in');return;}S.activities=S.activities||[];S.activities.push({type:type,dur:dur,ts:Date.now()});saveUserData();document.getElementById('act-dur').value='';render();}
-function removeActivity(i){S.activities.splice(i,1);saveUserData();render();}
-function profileBlock(){var ud=DB.get('user:'+S.user.email)||{};return '<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F464;</div><span class="card-title">Mijn profiel</span></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Naam</div><input id="prof-name" type="text" value="'+(ud.name||'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Nieuw wachtwoord <span style="font-weight:400;color:#9E9580;">(laat leeg)</span></div><input id="prof-pass1" type="password" placeholder="Nieuw wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/><input id="prof-pass2" type="password" placeholder="Herhaal wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div id="prof-err" style="color:#C0392B;font-size:12px;margin-bottom:10px;display:none;"></div><button onclick="saveProfile()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button></div><div class="card"><div style="font-size:12px;color:#9E9580;margin-bottom:6px;">&#x1F4E7; E-mailadres</div><div style="font-size:14px;font-weight:700;color:#1E3D20;">'+S.user.email+'</div></div>';}
-function saveProfile(){var name=document.getElementById('prof-name').value.trim(),p1=document.getElementById('prof-pass1').value,p2=document.getElementById('prof-pass2').value,err=document.getElementById('prof-err');err.style.display='none';if(!name){err.textContent='Naam mag niet leeg zijn.';err.style.display='block';return;}if(p1&&p1.length<4){err.textContent='Wachtwoord min. 4 tekens.';err.style.display='block';return;}if(p1&&p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}var ud=DB.get('user:'+S.user.email);ud.name=name;if(p1)ud.pass=btoa(p1);DB.set('user:'+S.user.email,ud);S.user.name=name;showToast('\u2713 Profiel opgeslagen');render();}
 function showInviteModal(){
   S.showInvite=true;
   render();
@@ -902,23 +806,6 @@ function weightBlock(){
     ctx.strokeStyle='#2A6030';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.beginPath();pts.forEach(function(p,i){if(i===0)ctx.moveTo(xP(i),yP(p.kg));else ctx.lineTo(xP(i),yP(p.kg));});ctx.stroke();
     pts.forEach(function(p,i){ctx.beginPath();ctx.arc(xP(i),yP(p.kg),4,0,2*Math.PI);ctx.fillStyle='#2A6030';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();});
     if(pts.length){var li=pts.length-1;ctx.fillStyle='#1E3D20';ctx.font='bold 11px Lato,sans-serif';ctx.textAlign='center';ctx.fillText(pts[li].kg+' kg',xP(li),yP(pts[li].kg)-10);}
-    if(hasFat){
-      var fatPts=list.filter(function(p){return p.fat!=null;});
-      var fatIdxMap=fatPts.map(function(fp){return pts.findIndex(function(p){return p.date===fp.date;});});
-      var minF=Math.min.apply(null,fatPts.map(function(p){return p.fat;}))-2,maxF=Math.max.apply(null,fatPts.map(function(p){return p.fat;}))+2;
-      function yF(f){return pad.t+gh-(f-minF)/(maxF-minF||1)*gh;}
-      ctx.fillStyle='#C0392B';ctx.font='9px Lato,sans-serif';ctx.textAlign='left';
-      for(var g2=0;g2<=4;g2++) ctx.fillText(Math.round((maxF-(maxF-minF)*g2/4)*10)/10+'%',pad.l+gw+4,pad.t+g2/4*gh+3);
-      ctx.strokeStyle='#C0392B';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();
-      fatPts.forEach(function(fp,i){var xi=fatIdxMap[i];if(xi<0)return;if(i===0)ctx.moveTo(xP(xi),yF(fp.fat));else ctx.lineTo(xP(xi),yF(fp.fat));});
-      ctx.stroke();ctx.setLineDash([]);
-      fatPts.forEach(function(fp,i){var xi=fatIdxMap[i];if(xi<0)return;ctx.beginPath();ctx.arc(xP(xi),yF(fp.fat),3.5,0,2*Math.PI);ctx.fillStyle='#C0392B';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();});
-      var lf=fatPts[fatPts.length-1],lfi=fatIdxMap[fatPts.length-1];
-      if(lfi>=0){ctx.fillStyle='#C0392B';ctx.font='bold 10px Lato,sans-serif';ctx.textAlign='center';ctx.fillText(lf.fat+'%',xP(lfi),yF(lf.fat)-10);}
-      ctx.font='9px Lato,sans-serif';ctx.textAlign='left';
-      ctx.fillStyle='#2A6030';ctx.fillRect(pad.l,pad.t-12,12,4);ctx.fillStyle='#1E3D20';ctx.fillText('Gewicht',pad.l+15,pad.t-8);
-      ctx.strokeStyle='#C0392B';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(pad.l+68,pad.t-10);ctx.lineTo(pad.l+80,pad.t-10);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#C0392B';ctx.fillText('Vetmassa',pad.l+83,pad.t-8);
-    }
   },80);
   return entryCard+statsHtml+chartCard+logCard;
 }
@@ -943,83 +830,6 @@ function activityBlock(){
     +'<button onclick="addActivity()" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 14px;font-size:18px;cursor:pointer;line-height:1;">+</button>'
     +'</div>'
     +(rows||'<div style="font-size:12px;color:#9E9580;text-align:center;padding:10px 0;">Nog geen activiteiten vandaag</div>')
-    +'</div>';
-}
-// Real-time Firestore listener for diary sync
-var _diaryListener=null;
-function startDiarySync(email){
-  if(_diaryListener) _diaryListener();
-  var key='diary:'+email+':'+today();
-  _diaryListener=fsdb.collection('data').doc(fsKey(key)).onSnapshot(function(snap){
-    if(!snap.exists||!S.user||S.user.email!==email) return;
-    var remote=JSON.parse(snap.data().v);
-    var local=DB.get(key)||{};
-    // Only update if remote is newer
-    if(!local.ts||remote.ts>local.ts){
-      localStorage.setItem(key,JSON.stringify(remote));
-      S.meals=remote.meals||{morning:[],lunch:[],evening:[]};
-      S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};
-      S.water=remote.water||0;
-      S.activities=remote.activities||[];
-      render();
-    }
-  },function(){});
-}
-function analyseMealBlock(k){
-  if(!isAnalyseEnabled||!isAnalyseEnabled()) return '';
-  var selDate=today();
-  var result=DB.get(getMealAnalyseKey(S.user.email,selDate,k));
-  var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
-  var mealColors={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
-  var ms=S.meals[k]||[];
-  if(!ms.length) return '';
-
-  var btnHtml=S.analyseLoading===k
-    ?'<button disabled style="width:100%;background:#ccc;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;">&#x23F3; Analyseren...</button>'
-    :result
-    ?'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw analyseren</button>'
-    :'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:linear-gradient(135deg,'+mealColors[k]+','+mealColors[k]+'cc);color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer '+mealNames[k]+'</button>';
-
-  var resultHtml='';
-  if(result){
-    var macros=[
-      {l:'Kcal',v:result.kcal,u:'kcal',col:'#C9A84C'},
-      {l:'Eiwitten',v:result.proteinen,u:'g',col:'#2A6030'},
-      {l:'Koolh.',v:result.koolhydraten,u:'g',col:'#3A8FBD'},
-      {l:'Vetten',v:result.vetten,u:'g',col:'#C0392B'},
-      {l:'Vezels',v:result.vezels,u:'g',col:'#4A8E7B'},
-      {l:'Suikers',v:result.suikers,u:'g',col:'#E67E22'},
-    ];
-    var macroGrid=macros.map(function(m){
-      return '<div style="text-align:center;padding:8px 4px;background:#FDFAF5;border-radius:8px;border:1px solid #EAE2D0;">'
-        +'<div style="font-size:14px;font-weight:800;color:'+m.col+';">'+m.v+'</div>'
-        +'<div style="font-size:9px;color:#9E9580;">'+m.u+'</div>'
-        +'<div style="font-size:8px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.3px;">'+m.l+'</div>'
-        +'</div>';
-    }).join('');
-    var scoreColor=result.score>=8?'#2A6030':result.score>=5?'#C9A84C':'#C0392B';
-    resultHtml='<div style="margin-top:10px;padding-top:10px;border-top:1px solid #EAE2D0;">'
-      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-      +'<div style="text-align:center;background:#F0F7F2;border-radius:10px;padding:8px 12px;">'
-      +'<div style="font-size:22px;font-weight:800;color:'+scoreColor+';">'+result.score+'</div>'
-      +'<div style="font-size:9px;color:#5A7A5C;text-transform:uppercase;">/10</div>'
-      +'</div>'
-      +'<div style="flex:1;font-size:12px;color:#5A7A5C;font-style:italic;">'+result.scoreUitleg+'</div>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'+macroGrid+'</div>'
-      +(result.tips&&result.tips.length
-        ?'<div style="background:#FFFBEF;border-radius:8px;padding:10px;">'
-        +'<div style="font-size:10px;font-weight:700;color:#856404;text-transform:uppercase;margin-bottom:6px;">&#x1F4A1; Tips</div>'
-        +result.tips.map(function(t){return '<div style="font-size:11px;color:#5A5020;padding:3px 0;border-bottom:1px solid #F5EED5;">&#x2022; '+t+'</div>';}).join('')
-        +'</div>':'')
-      +'<div style="font-size:9px;color:#C0C0C0;text-align:center;margin-top:6px;font-style:italic;">Schatting op basis van omschrijving &middot; '+new Date(result.ts||Date.now()).toLocaleDateString('nl-BE')+'</div>'
-      +'</div>';
-  }
-
-  return '<div class="card" style="border-left:3px solid '+mealColors[k]+';background:#FAFFF9;">'
-    +'<div class="card-head"><div class="card-icon-box">&#x1F9EA;</div><span class="card-title">Voedingsanalyse AI</span></div>'
-    +btnHtml
-    +resultHtml
     +'</div>';
 }
 function render(){
@@ -1075,39 +885,22 @@ function render(){
       +'<div style="text-align:right"><div style="font-family:\'Playfair Display\',serif;font-size:13px;color:#C9B97A;font-weight:600;">Beheer &mdash; '+S.user.name+'</div><button style="font-size:10px;color:#C9B97A;background:none;border:none;cursor:pointer;font-family:Lato,sans-serif;font-weight:700;" onclick="logout()">Uitloggen</button></div>'
       +'</div>'
       +'<div style="display:flex;background:#fff;border-bottom:2px solid #EAE2D0;">'
-        +'<div onclick="S.adminTab=\'clients\';render()" style="'+tabStyle+'color:'+(t1?'#1E3D20':'#9E9580')+';border-bottom:'+(t1?'3px solid #4A8E7B':'3px solid transparent')+';margin-bottom:-2px;position:relative;">&#x1F4CB; Klanten'+(S.adminClients.filter(function(x){return (x.status||'approved')==='pending';}).length?'<span style="position:absolute;top:6px;right:6px;background:#C0392B;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;">'+S.adminClients.filter(function(x){return (x.status||'approved')==='pending';}).length+'</span>':'')+'</div>'
+        +'<div onclick="S.adminTab=\'clients\';render()" style="'+tabStyle+'color:'+(t1?'#1E3D20':'#9E9580')+';border-bottom:'+(t1?'3px solid #4A8E7B':'3px solid transparent')+';margin-bottom:-2px;">\uD83D\uDCCB Klanten</div>'
         +'<div onclick="S.adminTab=\'news\';render()" style="'+tabStyle+'color:'+(!t1?'#1E3D20':'#9E9580')+';border-bottom:'+(!t1?'3px solid #C9A84C':'3px solid transparent')+';margin-bottom:-2px;">\uD83D\uDCE3 Nieuws & Tips</div>'
-      +(S.user&&S.user.email===SUPER_ADMIN?(function(){var tc=S.adminTab==='settings';return '<div onclick="S.adminTab=\'settings\';render()" style="'+tabStyle+'color:'+(tc?'#1E3D20':'#9E9580')+';border-bottom:'+(tc?'3px solid #4A8E7B':'3px solid transparent')+';margin-bottom:-2px;">&#x2699;&#xFE0F; Instellingen</div>';})():'')
       +'</div>'
       +'<div style="background:#F5F0E6;min-height:80vh;">'+renderAdminTabContent(ch)+'</div>';
     setTimeout(function(){S.adminClients.forEach(function(c,i){var el=document.getElementById('admin-chat-msgs-'+i);if(el)el.scrollTop=el.scrollHeight;});},50);
-    // Invite modal
     if(S.showInvite){
-      var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://ecofinity-creator.github.io/befit-app/&color=1E3D20&bgcolor=FDFAF5';
-      var appUrl='https://ecofinity-creator.github.io/befit-app/';
       var modal=document.createElement('div');
       modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
       modal.innerHTML='<div style="background:#FDFAF5;border-radius:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;">'
-        +'<div style="background:linear-gradient(135deg,#1E3D20,#2A6030);padding:20px 20px 16px;border-radius:20px 20px 0 0;">'
-        +'<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:700;color:#C9B97A;margin-bottom:4px;">Klant uitnodigen</div>'
-        +'<div style="font-size:12px;color:#A8D4B8;">Stuur een uitnodiging met de app-link en QR-code</div>'
-        +'</div>'
-        +'<div style="padding:20px;">'
-        +'<div style="text-align:center;margin-bottom:16px;background:#F0F7F2;border-radius:14px;padding:16px;">'
-        +'<img src="'+qrUrl+'" style="width:160px;height:160px;border-radius:12px;border:3px solid #2A6030;display:block;margin:0 auto 8px;"/>'
-        +'<div style="font-size:11px;color:#2A6030;font-weight:700;">'+appUrl+'</div>'
-        +'</div>'
-        +'<div style="margin-bottom:10px;">'
-        +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Naam klant (optioneel)</div>'
-        +'<input id="invite-name" type="text" placeholder="bv. Marie Janssen" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#fff;outline:none;box-sizing:border-box;"/>'
-        +'</div>'
-        +'<div style="margin-bottom:16px;">'
-        +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">E-mailadres klant</div>'
-        +'<input id="invite-email" type="email" placeholder="klant@email.be" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#fff;outline:none;box-sizing:border-box;"/>'
-        +'</div>'
+        +'<div style="background:linear-gradient(135deg,#1E3D20,#2A6030);padding:20px 20px 16px;border-radius:20px 20px 0 0;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:700;color:#C9B97A;margin-bottom:4px;">Klant uitnodigen</div><div style="font-size:12px;color:#A8D4B8;">Stuur een uitnodiging met de app-link en QR-code</div></div>'
+        +'<div style="padding:20px;"><div style="text-align:center;margin-bottom:16px;background:#F0F7F2;border-radius:14px;padding:16px;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://ecofinity-creator.github.io/befit-app/&color=1E3D20&bgcolor=FDFAF5" style="width:160px;height:160px;border-radius:12px;border:3px solid #2A6030;display:block;margin:0 auto 8px;"/><div style="font-size:11px;color:#2A6030;font-weight:700;">https://ecofinity-creator.github.io/befit-app/</div></div>'
+        +'<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Naam klant (optioneel)</div><input id="invite-name" type="text" placeholder="bv. Marie Janssen" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#fff;outline:none;box-sizing:border-box;"/></div>'
+        +'<div style="margin-bottom:16px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">E-mailadres klant</div><input id="invite-email" type="email" placeholder="klant@email.be" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#fff;outline:none;box-sizing:border-box;"/></div>'
         +'<button onclick="sendInvite()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:10px;">&#x2709;&#xFE0F; Verstuur uitnodiging</button>'
         +'<button onclick="hideInviteModal()" style="width:100%;background:transparent;color:#9E9580;border:1px solid #DDD4C0;border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-family:Lato,sans-serif;">Annuleren</button>'
-        +'<div style="font-size:10px;color:#9E9580;text-align:center;margin-top:10px;">&#x2139;&#xFE0F; Opent je e-mailapp met een kant-en-klare uitnodiging inclusief QR-code</div>'
+        +'<div style="font-size:10px;color:#9E9580;text-align:center;margin-top:10px;">&#x2139;&#xFE0F; Opent je e-mailapp met uitnodiging en QR-code</div>'
         +'</div></div>';
       modal.onclick=function(e){if(e.target===modal)hideInviteModal();};
       document.getElementById('app').appendChild(modal);
@@ -1145,6 +938,7 @@ function render(){
     +navItem('profile','\u2699\uFE0F','Profiel',tab==='profile',0)
     +navItem('chat','\uD83D\uDCAC','Chat',tab==='chat',unreadChat||0)
     +navItem('news','\uD83D\uDCE3','Nieuws',tab==='news',unreadNews||0)
+    +navItem('analyse','\uD83E\uDD66','Analyse',tab==='analyse',0)
     +navItem('summary','\uD83D\uDCCB','Dag',tab==='summary',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
@@ -1154,27 +948,4 @@ function render(){
 render();
 </script>
 </body>
-</html>'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030;border:1px solid #A8D4B8':'#FFECEC;color:#C0392B;border:1px solid #FFCDD0')+';border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse '+(isAnalyseEnabled(c.email)?'aan':'uit')+'</button>'+  var anlKeys=Object.keys(anlResults);
-  var anlSec=anlKeys.length
-    ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
-    +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'
-    +anlKeys.map(function(k){
-      var r=anlResults[k];
-      var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';
-      var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';
-      return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;">'
-        +'<div style="display:flex;align-items:center;margin-bottom:5px;">'
-        +'<span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span>'
-        +'<span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span>'
-        +'</div>'
-        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
-        +(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')
-        +(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')
-        +(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')
-        +(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')
-        +'</div>'
-        +(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:4px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')
-        +'</div>';
-    }).join('')+'</div>'
-    :'';
-
+</html>
