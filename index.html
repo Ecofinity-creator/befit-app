@@ -713,8 +713,12 @@ async function runPhotoAnalyse(input){
         })
       });
       var data=await resp.json();
+      if(data.error){showToast('API fout: '+data.error.message);S.photoPreview=null;S.analyseLoading=null;render();return;}
+      if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=null;render();return;}
       var text=data.content[0].text.replace(/```json|```/g,'').trim();
-      var result=JSON.parse(text);
+      var jsonMatch=text.match(/\{[\s\S]*\}/);
+      if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=null;render();return;}
+      var result=JSON.parse(jsonMatch[0]);
       result.fromPhoto=true;
       DB.set('analyse:'+S.user.email+':'+selDate,result);
     }catch(err){
@@ -755,16 +759,22 @@ async function runMealAnalyse(meal){
       })
     });
     var data=await resp.json();
+    // Check for API errors
+    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=null;render();return;}
+    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord van AI');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
-    var result=JSON.parse(text);
+    // Extract JSON if there's surrounding text
+    var jsonMatch=text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=null;render();return;}
+    var result=JSON.parse(jsonMatch[0]);
     result.meal=meal;
     result.mealName=mealName;
     result.ts=Date.now();
     result.byClient=S.user.name;
-    // Save per-meal — also visible to admin via Firestore
     DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
   }catch(err){
-    showToast('Analyse mislukt. Probeer opnieuw.');
+    console.error('Analyse error:',err);
+    showToast('Analyse mislukt: '+(err.message||'Onbekende fout'));
   }
   S.analyseLoading=null;render();
 }
@@ -800,8 +810,12 @@ async function runAnalyse(){
       })
     });
     var data=await resp.json();
+    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=false;render();return;}
+    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=false;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
-    var result=JSON.parse(text);
+    var jsonMatch=text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){showToast('AI antwoord kon niet worden gelezen');S.analyseLoading=false;render();return;}
+    var result=JSON.parse(jsonMatch[0]);
     DB.set('analyse:'+S.user.email+':'+selDate,result);
   }catch(e){
     showToast('Analyse mislukt. Probeer opnieuw.');
