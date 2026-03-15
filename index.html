@@ -284,7 +284,11 @@ function mealBlock(k){
   var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
   var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering volgt automatisch 2.5u na je eerste hap</span></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
   var snHtml=ms.length?'<div class="snack-card"><div class="snack-tag">\uD83C\uDF4E Tussendoortje na '+c.label.toLowerCase()+'</div>'+(sn.length?sn.map(function(x,i){return '<div class="logged-item" style="background:#FFFCF0"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" oninput="updateSnackTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delSnack(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog geen tussendoortje ingegeven</div>')+'<div class="input-row"><input type="time" class="add-time" id="snack-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="snack-in-'+k+'" placeholder="bv. appel, nootjes..." onkeydown="if(event.key===\'Enter\')addSnack(\''+k+'\')" /><button class="btn-g btn-gold" onclick="addSnack(\''+k+'\')">+</button></div></div>':'';
-  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock();
+  var _anlBtn=isAnalyseEnabled&&isAnalyseEnabled()
+    ?(!mealAlreadyAnalysed(S.user.email,today(),k)
+      ?'<button onclick="S.tab=\'analyse\';render()" style="margin-left:auto;background:rgba(201,168,76,0.15);color:#C9A84C;border:1px solid rgba(201,168,76,0.5);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer</button>'      :'<span style="margin-left:auto;font-size:10px;color:#2A6030;font-weight:700;">&#x2713; Geanalyseerd</span>')
+    :'';
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+_anlBtn+''+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock();
 }
 
 function waterBlock(){
@@ -300,6 +304,14 @@ function apptBlock(){
 }
 
 function chatBlock(){
+  var ud=DB.get('user:'+S.user.email);
+  if(ud&&ud.chatEnabled===false){
+    return '<div class="card" style="text-align:center;padding:40px 20px;">'
+      +'<div style="font-size:40px;margin-bottom:12px;">&#x1F4AC;</div>'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Chat niet beschikbaar</div>'
+      +'<div style="font-size:13px;color:#9E9580;">De chatfunctie is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
+      +'</div>';
+  }
   var msgs=getChat(S.user.email),changed=false;
   msgs.forEach(function(m){if(m.from==='admin'&&!m.read){m.read=true;changed=true;}});
   if(changed)saveChat(S.user.email,msgs);
@@ -1011,9 +1023,9 @@ function render(){
     +navItem('lunch','\u2600\uFE0F','Middag',tab==='lunch',0)
     +navItem('evening','\uD83C\uDF19','Avond',tab==='evening',0)
     +navItem('water','\uD83D\uDCA7','Water',tab==='water',0)
+    +navItem('analyse','\uD83E\uDD66','Analyse',tab==='analyse',0)
     +navItem('weight','\u2696\uFE0F','Gewicht',tab==='weight',0)
     +navItem('appt','\uD83D\uDCC5','Agenda',tab==='appt',0)
-    +navItem('analyse','\uD83E\uDD66','Analyse',tab==='analyse',0)
     +navItem('profile','\u2699\uFE0F','Profiel',tab==='profile',0)
     +navItem('chat','\uD83D\uDCAC','Chat',tab==='chat',unreadChat||0)
     +navItem('news','\uD83D\uDCE3','Nieuws',tab==='news',unreadNews||0)
