@@ -434,15 +434,32 @@ function renderAdminClient(c,i){
   // Fat% entry
   var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
   var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
+    var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
+  var anlOn=isAnalyseEnabled(c.email);
   return '<div class="admin-client-card" onclick="S.adminOpen=S.adminOpen==='+i+'?null:'+i+';render()">'
-    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+'</div>'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><div style="font-size:11px;color:#9E9580;flex:1">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
-    +'<div style="font-size:10px;font-weight:700">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet</span>'):'')+'</div>'
-    +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700">&#x270D;&#xFE0F; FB</div>':'')+badge
-    +'</div><div class="admin-client-detail '+(open?'open':'')+'">'+((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
-    +aBtns+(status==='approved'?fatSec+chatSec:'')+'</div></div>';
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+    +'<div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge
+    +'</div>'
+    +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
+    +(status==='approved'
+      ?'<div style="display:flex;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
+      +'<button onclick="toggleChat(\''+c.email+'\')" '
+      +'style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
+      +'&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
+      +'<button onclick="toggleAnalyse(\''+c.email+'\')" '
+      +'style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
+      +'&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
+      +'</div>'
+      :'')
+    +'<div style="display:flex;align-items:center;gap:6px;">'
+    +'<div style="font-size:10px;font-weight:700;flex:1">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet ingevuld</span>'):'')+'</div>'
+    +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700;">\u270D\uFE0F Feedback</div>':'')+badge
+    +'</div>'
+    +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
+    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
+    +(status==='approved'?aBtns+fatSec+chatSec:'')
+    +'</div></div>';
 }
-
 function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
   return '<div class="login-wrap">'
     +'<div class="login-logo-area">'+logoSVG(280)
