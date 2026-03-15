@@ -134,6 +134,23 @@ async function subscribePush(){if(!('PushManager' in window))return null;try{var
 async function requestNotifPermission(){if(!('Notification' in window))return;if(Notification.permission==='default'){var p=await Notification.requestPermission();if(p==='granted')subscribePush();}else if(Notification.permission==='granted')subscribePush();}
 function localNotif(title,body,tag){if(Notification.permission!=='granted')return;try{navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});});}catch(e){}}
 function sendPushToClient(sub,title,body,tag){var backendUrl=DB.get('push:backend:url');if(backendUrl)fetch(backendUrl+'/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub,title:title,body:body,tag:tag})}).catch(function(){});}
+function isAnalyseEnabled(email){
+  var ud=DB.get('user:'+(email||S.user.email));
+  return ud&&ud.analyseEnabled===true;
+}
+function toggleAnalyse(email){
+  var ud=DB.get('user:'+email);if(!ud)return;
+  ud.analyseEnabled=!ud.analyseEnabled;
+  DB.set('user:'+email,ud);
+  showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');
+  loadAdminClients();render();
+}
+function getMealAnalyseKey(email,dateStr,meal){
+  return 'analyse:'+email+':'+dateStr+':'+meal;
+}
+function mealAlreadyAnalysed(email,dateStr,meal){
+  return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;
+}
 function getApiKey(){return DB.get('anthropic:apikey')||'';}
 function saveApiKey(){var k=document.getElementById('api-key-input').value.trim();if(!k){showToast('Vul een API-sleutel in');return;}DB.set('anthropic:apikey',k);showToast('\u2713 API-sleutel opgeslagen');render();}
 function getExtraAdmins(){return DB.get('extra:admins')||[];}
@@ -396,7 +413,9 @@ function renderAdminClient(c,i){
   var hasData=d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0);
     var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
   var aBtns=status==='pending'
-    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button></div>'
+    ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;flex-wrap:wrap;">'
+    +'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030':'#FFECEC;color:#C0392B')+';border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; '+(isAnalyseEnabled(c.email)?'Analyse aan':'Analyse uit')+'</button>'
+    +'<button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Goedkeuren</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Annuleren</button></div>'
     :status==='approved'
     ?'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();toggleChat(\''+c.email+'\')" style="background:'+(((DB.get('user:'+c.email)||{}).chatEnabled===false)?'#FFF3CD;color:#856404':'#E8F4EE;color:#2A6030')+';border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat '+(((DB.get('user:'+c.email)||{}).chatEnabled===false)?'aan':'uit')+'</button><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
     :'<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0EAD6;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
@@ -484,19 +503,42 @@ function analyseBlock(){
   }
 
   // Show meal list + analyse button
+  // Access control
+  if(!isAnalyseEnabled()){
+    return '<div class="card"><div style="text-align:center;padding:32px 16px;">'
+      +'<div style="font-size:40px;margin-bottom:12px;">&#x1F512;</div>'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Analyse niet beschikbaar</div>'
+      +'<div style="font-size:13px;color:#9E9580;">De AI voedingsanalyse is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
+      +'</div></div>';
+  }
+  // Per-meal analysis cache
+  var mealKeys={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
+  var mealAnalysis={};
+  ['morning','lunch','evening'].forEach(function(k){
+    mealAnalysis[k]=DB.get(getMealAnalyseKey(S.user.email,selDate,k));
+  });
   var cached=DB.get('analyse:'+S.user.email+':'+selDate);
   var mealListHtml=allItems.map(function(it){
     return '<div style="font-size:12px;color:#5A7A5C;padding:3px 0;border-bottom:1px solid #F5F0E6;">&#x2022; '+it+'</div>';
   }).join('');
 
+  // Build combined results for all analysed meals
   var resultHtml='';
+  var mealResultsHtml=['morning','lunch','evening'].map(function(k){
+    var r=mealAnalysis[k];
+    if(!r)return '';
+    return '<div style="margin-bottom:12px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">'
+      +(k==='morning'?'&#x1F315; Ontbijt':k==='lunch'?'&#x2600;&#xFE0F; Middagmaal':'&#x1F319; Avondmaal')
+      +'</div>'+renderAnalyseResult(r)+'</div>';
+  }).join('');
   if(S.analyseLoading){
     resultHtml='<div style="text-align:center;padding:24px;">'
       +'<div style="font-size:28px;margin-bottom:10px;">&#x1F914;</div>'
       +'<div style="font-size:13px;color:#5A7A5C;font-style:italic;">AI analyseert je voeding...</div>'
       +'</div>';
-  } else if(cached){
-    resultHtml=renderAnalyseResult(cached);
+  } else {
+    resultHtml=mealResultsHtml;
   }
 
   return '<div class="card">'+navBar
@@ -505,15 +547,22 @@ function analyseBlock(){
     +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Maaltijden '+selDate+'</div>'
     +mealListHtml
     +'</div>'
-    +'<div style="display:flex;gap:8px;margin-bottom:14px;">'
-    +'<button onclick="runAnalyse()" style="flex:1;background:linear-gradient(135deg,#1E3D20,#2A6030);color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
-    +(cached?'&#x1F504; Opnieuw':'&#x2728; Analyseer')
-    +'</button>'
-    +'<label style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">'
-    +'&#x1F4F7; Foto analyseren'
-    +'<input type="file" accept="image/*" capture="environment" onchange="runPhotoAnalyse(this)" style="display:none;"/>'
-    +'</label>'
-    +'</div>'
+        // Per-meal analysis buttons
+    +'<div style="margin-bottom:14px;">'
+    +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Analyseer per maaltijd (1x per maaltijd)</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +(dm.morning&&dm.morning.length
+      ?'<button onclick="runMealAnalyse(\'morning\')" '+(mealAnalysis.morning?'style="background:#EAF4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" disabled':'style="background:linear-gradient(135deg,#C9A84C,#B8960E);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F315; Ontbijt')+(mealAnalysis.morning?' &#x2713; Gedaan':'')+'</button>'
+      :'')
+    +(dm.lunch&&dm.lunch.length
+      ?'<button onclick="runMealAnalyse(\'lunch\')" '+(mealAnalysis.lunch?'style="background:#EAF4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" disabled':'style="background:linear-gradient(135deg,#2A6030,#1E3D20);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2600;&#xFE0F; Middag')+(mealAnalysis.lunch?' &#x2713; Gedaan':'')+'</button>'
+      :'')
+    +(dm.evening&&dm.evening.length
+      ?'<button onclick="runMealAnalyse(\'evening\')" '+(mealAnalysis.evening?'style="background:#EAF4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" disabled':'style="background:linear-gradient(135deg,#3A8FBD,#2A6F9D);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F319; Avond')+(mealAnalysis.evening?' &#x2713; Gedaan':'')+'</button>'
+      :'')
+    +'<label style="background:#4A8E7B;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;display:flex;align-items:center;gap:6px;">'
+    +'&#x1F4F7; Foto<input type="file" accept="image/*" capture="environment" onchange="runPhotoAnalyse(this)" style="display:none;"/></label>'
+    +'</div></div>'
     +(S.photoPreview?'<div style="margin-bottom:12px;border-radius:10px;overflow:hidden;border:2px solid #4A8E7B;"><img src="'+S.photoPreview+'" style="width:100%;max-height:200px;object-fit:cover;display:block;"/><div style="background:#4A8E7B;color:#fff;font-size:10px;font-weight:700;text-align:center;padding:4px;">&#x1F916; Foto geanalyseerd</div></div>':'')
     +resultHtml
     +'</div>';
@@ -618,6 +667,49 @@ async function runPhotoAnalyse(input){
     render();
   };
   reader.readAsDataURL(file);
+}
+async function runMealAnalyse(meal){
+  if(!getApiKey()){showToast('Geen API-sleutel. Stel in via \u2699\uFE0F Instellingen.');return;}
+  var selDate=getSummaryDate(),isToday=selDate===today();
+  var diary=isToday
+    ?{meals:S.meals,snacks:S.snacks}
+    :DB.get('diary:'+S.user.email+':'+selDate)||{meals:{morning:[],lunch:[],evening:[]}};
+  var dm=diary.meals||{};
+  var items=dm[meal]||[];
+  if(!items.length){showToast('Geen items in deze maaltijd');return;}
+  // Check if already analysed
+  if(DB.get(getMealAnalyseKey(S.user.email,selDate,meal))){
+    showToast('Deze maaltijd werd al geanalyseerd');return;
+  }
+  var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
+  var mealName=mealNames[meal];
+  S.analyseLoading=true;render();
+  try{
+    var prompt='Analyseer deze '+mealName+' van een persoon die werkt aan een gezonder eetpatroon:\n\n'
+      +items.map(function(i){return '- '+i.t;}).join('\n')
+      +'\n\nGeef een schatting van de voedingswaarden van deze maaltijd en geef ook tips. '
+      +'Antwoord ENKEL in dit JSON-formaat, zonder uitleg erbuiten:\n'
+      +'{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"korte uitleg","tips":["tip1","tip2"]}';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:400,
+        system:'Je bent een voedingsdeskundige assistent. Antwoord altijd in het Nederlands en enkel in het gevraagde JSON-formaat.',
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    var data=await resp.json();
+    var text=data.content[0].text.replace(/```json|```/g,'').trim();
+    var result=JSON.parse(text);
+    result.meal=meal;
+    result.mealName=mealName;
+    // Save per-meal cache — only once
+    DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
+  }catch(err){
+    showToast('Analyse mislukt. Probeer opnieuw.');
+  }
+  S.analyseLoading=false;render();
 }
 async function runAnalyse(){
   if(!getApiKey()){showToast('Geen API-sleutel. Stel in via \u2699\uFE0F Instellingen in admin.');return;}
@@ -934,4 +1026,4 @@ function render(){
 render();
 </script>
 </body>
-</html>
+</html>'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030;border:1px solid #A8D4B8':'#FFECEC;color:#C0392B;border:1px solid #FFCDD0')+';border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse '+(isAnalyseEnabled(c.email)?'aan':'uit')+'</button>'+
