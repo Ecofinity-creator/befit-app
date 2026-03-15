@@ -178,7 +178,9 @@ function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+today
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:');}).map(function(k){return DB.get(k);}).filter(Boolean).sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);if(adm&&pass===getAdminPass(email)){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _storedPass=getAdminPass(email);
+  var _passOk=_storedPass&&(pass===_storedPass||btoa(pass)===_storedPass);
+  if(adm&&_passOk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');
     await syncAllFromFirestore();
     err.classList.remove('show');
     S.screen='admin';S.adminTab='clients';loadAdminClients();render();return;}err.textContent='Even geduld…';err.classList.add('show');
