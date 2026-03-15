@@ -219,8 +219,7 @@ function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.me
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();render();// Also do a targeted user query in case full sync missed some
-  loadAdminClientsFromFirestore();return;}err.textContent='Even geduld…';err.classList.add('show');
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
@@ -1153,8 +1152,11 @@ function render(){
     var ch=S.adminClients.length===0
       ?'<div style="text-align:center;padding:40px 16px;">'
         +'<div style="font-size:36px;margin-bottom:12px;">&#x1F465;</div>'
-        +'<div style="color:#9E9580;font-size:13px;margin-bottom:16px;font-style:italic;">Nog geen klanten geregistreerd</div>'
-        +'<button onclick="loadAdminClientsFromFirestore()" style="background:#2A6030;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw laden</button>'
+        +'<div style="font-size:16px;font-weight:700;color:#1E3D20;margin-bottom:8px;">Nog geen klanten</div>'
+        +'<div style="color:#9E9580;font-size:12px;margin-bottom:6px;">Het nieuwe Firebase project is leeg.</div>'
+        +'<div style="color:#9E9580;font-size:12px;margin-bottom:16px;">Klanten kunnen zich registreren via de app.</div>'
+        +'<button onclick="showInviteModal()" style="background:#1E3D20;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:8px;width:100%;">&#x2709;&#xFE0F; Klant uitnodigen</button>'
+        +'<button onclick="loadAdminClientsFromFirestore()" style="background:transparent;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">&#x1F504; Opnieuw laden</button>'
         +'</div>'
       :S.adminClients.map(function(c,i){return renderAdminClient(c,i);}).join('');
     var tabStyle='flex:1;text-align:center;padding:12px 6px;font-size:12px;font-weight:700;font-family:Lato,sans-serif;cursor:pointer;';
