@@ -191,7 +191,7 @@ function doForgot(){var email=document.getElementById('fg-email').value.trim().t
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
 function logout(){clearInterval(S._reminderInterval);S.user=null;S.screen='login';render();}
 
-function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k])startTimer(k);render();}
+function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k]&&getMealDate()===today())startTimer(k);render();}
 function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
 function updateMealTime(k,i,val){S.meals[k][i].timeStr=val;saveUserData();}
 function addSnack(k){var inp=document.getElementById('snack-in-'+k),tInp=document.getElementById('snack-time-'+k),v=(inp.value||'').trim();if(!v)return;S.snacks[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();render();}
@@ -540,13 +540,27 @@ function summaryNextDay(){var d=new Date(getSummaryDate());d.setDate(d.getDate()
 function getMealDate(){return S.mealDate||today();}
 function setMealDate(d){
   S.mealDate=d;
+  // Load from localStorage first for instant display
   var diary=DB.get('diary:'+S.user.email+':'+d)||{meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,reminders:[],activities:[]};
   S.meals=diary.meals||{morning:[],lunch:[],evening:[]};S.snacks=diary.snacks||{morning:[],lunch:[],evening:[]};S.water=diary.water||0;S.activities=diary.activities||[];
-  fsdb.collection('data').doc(fsKey('diary:'+S.user.email+':'+d)).get().then(function(snap){
-    if(snap.exists){var dd=JSON.parse(snap.data().v);S.meals=dd.meals||{morning:[],lunch:[],evening:[]};S.snacks=dd.snacks||{morning:[],lunch:[],evening:[]};S.water=dd.water||0;S.activities=dd.activities||[];localStorage.setItem('diary:'+S.user.email+':'+d,JSON.stringify(dd));}
-    render();
-  }).catch(function(){render();});
   render();
+  // Then sync from Firestore — only apply if still on same date
+  var _reqDate=d;
+  fsdb.collection('data').doc(fsKey('diary:'+S.user.email+':'+d)).get().then(function(snap){
+    if(S.mealDate!==_reqDate)return; // user navigated away, ignore
+    if(snap.exists){
+      var dd=JSON.parse(snap.data().v);
+      // Only overwrite if remote is newer than what we might have saved
+      var local=DB.get('diary:'+S.user.email+':'+_reqDate)||{};
+      if(!local.ts||dd.ts>local.ts){
+        S.meals=dd.meals||{morning:[],lunch:[],evening:[]};
+        S.snacks=dd.snacks||{morning:[],lunch:[],evening:[]};
+        S.water=dd.water||0;S.activities=dd.activities||[];
+        localStorage.setItem('diary:'+S.user.email+':'+_reqDate,JSON.stringify(dd));
+        render();
+      }
+    }
+  }).catch(function(){});
 }
 function profileBlock(){var ud=DB.get('user:'+S.user.email)||{};return '<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F464;</div><span class="card-title">Mijn profiel</span></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:6px;">Naam</div><input id="prof-name" type="text" value="'+(ud.name||'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:6px;">Nieuw wachtwoord <span style="font-weight:400;color:#9E9580;">(laat leeg)</span></div><input id="prof-pass1" type="password" placeholder="Nieuw wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/><input id="prof-pass2" type="password" placeholder="Herhaal wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div id="prof-err" style="color:#C0392B;font-size:12px;margin-bottom:10px;display:none;"></div><button onclick="saveProfile()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button></div><div class="card"><div style="font-size:12px;color:#9E9580;margin-bottom:6px;">&#x1F4E7; E-mailadres</div><div style="font-size:14px;font-weight:700;color:#1E3D20;">'+S.user.email+'</div></div>';}
 function saveProfile(){var name=document.getElementById('prof-name').value.trim(),p1=document.getElementById('prof-pass1').value,p2=document.getElementById('prof-pass2').value,err=document.getElementById('prof-err');err.style.display='none';if(!name){err.textContent='Naam mag niet leeg zijn.';err.style.display='block';return;}if(p1&&p1.length<4){err.textContent='Wachtwoord min. 4 tekens.';err.style.display='block';return;}if(p1&&p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}var ud=DB.get('user:'+S.user.email);ud.name=name;if(p1)ud.pass=btoa(p1);DB.set('user:'+S.user.email,ud);S.user.name=name;showToast('\u2713 Profiel opgeslagen');render();}
