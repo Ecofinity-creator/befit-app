@@ -142,7 +142,7 @@ function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").repla
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
 const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
 async function syncFromFirestore(email){
-  var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins"];
+  var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins","analyse_day:"+email+":"+today()];
   for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds);["morning","lunch","evening"].forEach(function(k){keys.push("analyse:"+email+":"+ds+":"+k);});}
   await Promise.all(keys.map(async function(k){try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();if(snap.exists)localStorage.setItem(k,snap.data().v);}catch(e){}}));
 }
@@ -225,7 +225,7 @@ function mealBlock(k){
     ?'<div style="margin:10px 0 4px 0;background:#FDFAF5;border-left:3px solid '+dc+';border-radius:0 8px 8px 0;padding:10px 14px;"><div style="font-size:10px;font-weight:700;color:'+dc+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">\uD83D\uDCAC Feedback Be Fit</div><div style="font-size:12px;color:#2C3E28;line-height:1.7;font-style:italic;">&ldquo;'+mealFb+'&rdquo;</div><div style="font-size:10px;color:#9E9580;margin-top:5px;">'+(fb.adminName||'Di\u00ebtiste')+' &middot; '+fbDate+'</div></div>'
     :'';
   var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
-  var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering instellen (+\u00a02u na maaltijd)</span><button class="btn-start" onclick="startTimer(\''+k+'\')">Start</button></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
+  var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering instellen (+\u00a02.5u na maaltijd)</span><button class="btn-start" onclick="startTimer(\''+k+'\')">Start</button></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
   var snHtml=ms.length?'<div class="snack-card"><div class="snack-tag">\uD83C\uDF4E Tussendoortje na '+c.label.toLowerCase()+'</div>'+(sn.length?sn.map(function(x,i){return '<div class="logged-item" style="background:#FFFCF0"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="time" class="li-time-edit" value="'+getTimeStr(x)+'" oninput="updateSnackTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delSnack(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog geen tussendoortje ingegeven</div>')+'<div class="input-row"><input type="time" class="add-time" id="snack-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="snack-in-'+k+'" placeholder="bv. appel, nootjes..." onkeydown="if(event.key===\'Enter\')addSnack(\''+k+'\')" /><button class="btn-g btn-gold" onclick="addSnack(\''+k+'\')">+</button></div></div>':'';
   return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
@@ -341,7 +341,9 @@ function renderAdminClient(c,i){
   var det='';
   // Analyse results
   var anlResults={};
-  ['morning','lunch','evening'].forEach(function(k){var r=DB.get(getMealAnalyseKey(c.email,today(),k));if(r)anlResults[k]=r;});
+  var _anlDay=DB.get('analyse_day:'+c.email+':'+today());
+  if(_anlDay){['morning','lunch','evening'].forEach(function(k){if(_anlDay[k])anlResults[k]=_anlDay[k];});}
+  else{['morning','lunch','evening'].forEach(function(k){var r=DB.get(getMealAnalyseKey(c.email,today(),k));if(r)anlResults[k]=r;});}
   var anlKeys=Object.keys(anlResults);
   var anlSec=anlKeys.length?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'+anlKeys.map(function(k){var r=anlResults[k];var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;"><div style="display:flex;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span><span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;">'+(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')+(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')+(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')+(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')+'</div>'+(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:3px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')+'</div>';}).join('')+'</div>':'';
   var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
@@ -697,6 +699,14 @@ async function runMealAnalyse(meal){
     var jm=text.match(/\{[\s\S]*\}/);if(!jm){showToast('Onleesbaar antwoord');S.analyseLoading=null;render();return;}
     var result=JSON.parse(jm[0]);result.meal=meal;result.mealName=mealName;result.ts=Date.now();result.byClient=S.user.name;
     DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
+    // Also save combined daily analyse for easy admin access
+    var _allAnl={};
+    ['morning','lunch','evening'].forEach(function(_k){
+      var _r=DB.get(getMealAnalyseKey(S.user.email,selDate,_k));
+      if(_r)_allAnl[_k]=_r;
+    });
+    _allAnl[meal]=result;
+    DB.set('analyse_day:'+S.user.email+':'+selDate,_allAnl);
   }catch(err){showToast('Analyse mislukt: '+(err.message||'fout'));}
   S.analyseLoading=null;render();
 }
