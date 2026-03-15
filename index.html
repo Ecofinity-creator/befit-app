@@ -149,17 +149,57 @@ async function syncFromFirestore(email){
 async function syncAllFromFirestore(){
   try{
     var snap=await fsdb.collection('data').get();
+    var count=0;
     snap.forEach(function(doc){
-      try{localStorage.setItem(fromFsKey(doc.id),doc.data().v);}catch(e){}
+      try{
+        var k=fromFsKey(doc.id);
+        if(doc.data()&&doc.data().v){
+          localStorage.setItem(k,doc.data().v);
+          count++;
+        }
+      }catch(e){console.warn('Error storing doc',doc.id,e);}
     });
-    console.log('Synced',snap.size,'docs from Firestore');
+    console.log('Synced',count,'of',snap.size,'docs from Firestore');
   }catch(e){
-    console.warn('syncAllFromFirestore failed:',e);
+    console.warn('syncAllFromFirestore failed:',e.message);
+    // Fallback: try to get just user docs with a prefix query
+    try{
+      var userSnap=await fsdb.collection('data')
+        .orderBy('__name__')
+        .startAt('user__at__')
+        .endAt('user__at__\uf8ff')
+        .get();
+      userSnap.forEach(function(doc){
+        try{if(doc.data()&&doc.data().v)localStorage.setItem(fromFsKey(doc.id),doc.data().v);}catch(e){}
+      });
+      console.log('Fallback synced',userSnap.size,'user docs');
+    }catch(e2){console.warn('Fallback also failed:',e2.message);}
+  }
+}
+// Load all user profiles directly from Firestore for admin
+async function loadAdminClientsFromFirestore(){
+  try{
+    // Get all docs whose key starts with 'user:'
+    var snap=await fsdb.collection('data')
+      .orderBy('__name__')
+      .startAt(fsKey('user:a'))
+      .endAt(fsKey('user:'+'\uf8ff'))
+      .get();
+    snap.forEach(function(doc){
+      try{if(doc.data()&&doc.data().v)localStorage.setItem(fromFsKey(doc.id),doc.data().v);}catch(e){}
+    });
+    console.log('Loaded',snap.size,'user profiles from Firestore');
+    loadAdminClients();
+    render();
+  }catch(e){
+    console.warn('loadAdminClientsFromFirestore failed:',e.message);
   }
 }
 
 var _diaryListener=null;
-function startDiarySync(email){if(_diaryListener)_diaryListener();var key="diary:"+email+":"+today();_diaryListener=fsdb.collection("data").doc(fsKey(key)).onSnapshot(function(snap){if(!snap.exists||!S.user||S.user.email!==email)return;var remote=JSON.parse(snap.data().v);var local=DB.get(key)||{};if(!local.ts||remote.ts>local.ts){localStorage.setItem(key,JSON.stringify(remote));S.meals=remote.meals||{morning:[],lunch:[],evening:[]};S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};S.water=remote.water||0;S.activities=remote.activities||[];render();}},function(){});}
+function startDiarySync(email){if(_diaryListener)_diaryListener();var key="diary:"+email+":"+today();_diaryListener=fsdb.collection("data").doc(fsKey(key)).onSnapshot(function(snap){if(!snap.exists||!S.user||S.user.email!==email)return;var remote=JSON.parse(snap.data().v);var local=DB.get(key)||{};if(!local.ts||remote.ts>local.ts){localStorage.setItem(key,JSON.stringify(remote));// Only update state if user is currently viewing today
+    if(!S.mealDate||S.mealDate===today()){
+      S.meals=remote.meals||{morning:[],lunch:[],evening:[]};      S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};      S.water=remote.water||0;S.activities=remote.activities||[];render();    }}},function(){});}
 
 
 var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
@@ -172,10 +212,11 @@ function closeNotif(){document.getElementById('notif-bar').style.display='none';
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');}
 
 function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
-function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
+function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();render();return;}err.textContent='Even geduld…';err.classList.add('show');
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();render();// Also do a targeted user query in case full sync missed some
+  loadAdminClientsFromFirestore();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
@@ -540,6 +581,8 @@ function summaryNextDay(){var d=new Date(getSummaryDate());d.setDate(d.getDate()
 function getMealDate(){return S.mealDate||today();}
 function setMealDate(d){
   S.mealDate=d;
+  // If going back to today, use live S state (already in sync via listener)
+  if(d===today()){loadUserData();render();return;}
   // Load from localStorage first for instant display
   var diary=DB.get('diary:'+S.user.email+':'+d)||{meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,reminders:[],activities:[]};
   S.meals=diary.meals||{morning:[],lunch:[],evening:[]};S.snacks=diary.snacks||{morning:[],lunch:[],evening:[]};S.water=diary.water||0;S.activities=diary.activities||[];
@@ -1105,7 +1148,7 @@ function render(){
       ?'<div style="text-align:center;padding:40px 16px;">'
         +'<div style="font-size:36px;margin-bottom:12px;">&#x1F465;</div>'
         +'<div style="color:#9E9580;font-size:13px;margin-bottom:16px;font-style:italic;">Nog geen klanten geregistreerd</div>'
-        +'<button onclick="syncAllFromFirestore().then(function(){loadAdminClients();render();})" style="background:#2A6030;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw laden</button>'
+        +'<button onclick="loadAdminClientsFromFirestore()" style="background:#2A6030;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw laden</button>'
         +'</div>'
       :S.adminClients.map(function(c,i){return renderAdminClient(c,i);}).join('');
     var tabStyle='flex:1;text-align:center;padding:12px 6px;font-size:12px;font-weight:700;font-family:Lato,sans-serif;cursor:pointer;';
