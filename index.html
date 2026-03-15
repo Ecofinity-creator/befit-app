@@ -288,7 +288,7 @@ function mealBlock(k){
     ?(!mealAlreadyAnalysed(S.user.email,today(),k)
       ?'<button onclick="S.tab=\'analyse\';render()" style="margin-left:auto;background:rgba(201,168,76,0.15);color:#C9A84C;border:1px solid rgba(201,168,76,0.5);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer</button>'      :'<span style="margin-left:auto;font-size:10px;color:#2A6030;font-weight:700;">&#x2713; Geanalyseerd</span>')
     :'';
-  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+_anlBtn+''+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock();
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">'+c.icon+'</div><span class="card-title">'+c.label+'</span>'+_anlBtn+''+(ms.length?'<span class="cbadge">'+ms.length+' item'+(ms.length>1?'s':'')+'</span>':'')+'</div>'+mHtml+fbHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
 function waterBlock(){
@@ -399,6 +399,12 @@ function renderAdminClient(c,i){
   var mc={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
   var open=S.adminOpen===i,det='';
   var status=c.status||'approved';
+  // Load analyse results for this client
+  var anlResults={};
+  ['morning','lunch','evening'].forEach(function(k){
+    var r=DB.get(getMealAnalyseKey(c.email,today(),k));
+    if(r) anlResults[k]=r;
+  });
   if(d){
     ['morning','lunch','evening'].forEach(function(k){
       var ms=(d.meals||{})[k]||[],sn=(d.snacks||{})[k]||[],st=fb[k]||'',col=mc[k],fid='fb-'+i+'-'+k;
@@ -419,7 +425,30 @@ function renderAdminClient(c,i){
   }else{det='<span style="color:#9E9580;font-style:italic;font-size:12px">Vandaag nog niets ingegeven.</span>';}
   var cm=getChat(c.email),cb=cm.length?cm.map(function(m){return '<div class="chat-bubble '+m.from+'" style="max-width:90%">'+(m.from==='admin'?'<div class="cb-name">\uD83C\uDF3F '+m.name+'</div>':'<div class="cb-name" style="color:#C9A84C;">'+m.name+'</div>')+m.text+'<span class="cb-time">'+chatFmtTime(m.ts)+'</span></div>';}).join(''):'<div style="font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:16px;">Nog geen berichten</div>';
   var sOC2="event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")",kd="if(event.key==='Enter'){event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")}";
-  var chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
+  var anlKeys=Object.keys(anlResults);
+  var anlSec=anlKeys.length
+    ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+    +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'
+    +anlKeys.map(function(k){
+      var r=anlResults[k];
+      var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';
+      var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';
+      return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;">'
+        +'<div style="display:flex;align-items:center;margin-bottom:5px;">'
+        +'<span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span>'
+        +'<span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span>'
+        +'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+        +(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')
+        +(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')
+        +(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')
+        +(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')
+        +'</div>'
+        +(r.tips&&r.tips.length?"+'<div style=\"font-size:10px;color:#856404;margin-top:4px;font-style:italic;\">\uD83D\uDCA1 '+r.tips[0]+'</div>'":'')
+        +'</div>';
+    }).join('')+'</div>'
+    :'';
+chatSec='<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">\uD83D\uDCAC Chat</div><div class="admin-chat-wrap"><div class="admin-chat-msgs" id="admin-chat-msgs-'+i+'">'+cb+'</div><div class="admin-chat-input"><input id="admin-chat-inp-'+i+'" type="text" placeholder="Antwoord aan '+c.name+'..." onclick="event.stopPropagation()" onkeydown="'+kd+'"/><button onclick="'+sOC2+'">Stuur</button></div></div></div>';
   var unread=cm.filter(function(m){return m.from==='client';}).length,lm=cm[cm.length-1],ans=lm&&lm.from==='admin';
   var badge=unread?'<div style="font-size:10px;color:#fff;background:'+(ans?'#2A6030':'#C0392B')+';border-radius:10px;padding:1px 6px;font-weight:700;">\uD83D\uDCAC '+(ans?'\u2713':'!')+'</div>':'';
   var hasData=d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0);
@@ -457,7 +486,7 @@ function renderAdminClient(c,i){
     +'</div>'
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
-    +(status==='approved'?aBtns+fatSec+chatSec:'')
+    +(status==='approved'?aBtns+anlSec+fatSec+chatSec:'')
     +'</div></div>';
 }
 function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
@@ -706,13 +735,10 @@ async function runMealAnalyse(meal){
   var dm=diary.meals||{};
   var items=dm[meal]||[];
   if(!items.length){showToast('Geen items in deze maaltijd');return;}
-  // Check if already analysed
-  if(DB.get(getMealAnalyseKey(S.user.email,selDate,meal))){
-    showToast('Deze maaltijd werd al geanalyseerd');return;
-  }
+  // (Re-analysis allowed from meal screen)
   var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
   var mealName=mealNames[meal];
-  S.analyseLoading=true;render();
+  S.analyseLoading=meal;render();
   try{
     var prompt='Analyseer deze '+mealName+' van een persoon die werkt aan een gezonder eetpatroon:\n\n'
       +items.map(function(i){return '- '+i.t;}).join('\n')
@@ -733,12 +759,14 @@ async function runMealAnalyse(meal){
     var result=JSON.parse(text);
     result.meal=meal;
     result.mealName=mealName;
-    // Save per-meal cache — only once
+    result.ts=Date.now();
+    result.byClient=S.user.name;
+    // Save per-meal — also visible to admin via Firestore
     DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
   }catch(err){
     showToast('Analyse mislukt. Probeer opnieuw.');
   }
-  S.analyseLoading=false;render();
+  S.analyseLoading=null;render();
 }
 async function runAnalyse(){
   if(!getApiKey()){showToast('Geen API-sleutel. Stel in via \u2699\uFE0F Instellingen in admin.');return;}
@@ -923,6 +951,63 @@ function startDiarySync(email){
     }
   },function(){});
 }
+function analyseMealBlock(k){
+  if(!isAnalyseEnabled||!isAnalyseEnabled()) return '';
+  var selDate=today();
+  var result=DB.get(getMealAnalyseKey(S.user.email,selDate,k));
+  var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'};
+  var mealColors={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
+  var ms=S.meals[k]||[];
+  if(!ms.length) return '';
+
+  var btnHtml=S.analyseLoading===k
+    ?'<button disabled style="width:100%;background:#ccc;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;">&#x23F3; Analyseren...</button>'
+    :result
+    ?'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw analyseren</button>'
+    :'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:linear-gradient(135deg,'+mealColors[k]+','+mealColors[k]+'cc);color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer '+mealNames[k]+'</button>';
+
+  var resultHtml='';
+  if(result){
+    var macros=[
+      {l:'Kcal',v:result.kcal,u:'kcal',col:'#C9A84C'},
+      {l:'Eiwitten',v:result.proteinen,u:'g',col:'#2A6030'},
+      {l:'Koolh.',v:result.koolhydraten,u:'g',col:'#3A8FBD'},
+      {l:'Vetten',v:result.vetten,u:'g',col:'#C0392B'},
+      {l:'Vezels',v:result.vezels,u:'g',col:'#4A8E7B'},
+      {l:'Suikers',v:result.suikers,u:'g',col:'#E67E22'},
+    ];
+    var macroGrid=macros.map(function(m){
+      return '<div style="text-align:center;padding:8px 4px;background:#FDFAF5;border-radius:8px;border:1px solid #EAE2D0;">'
+        +'<div style="font-size:14px;font-weight:800;color:'+m.col+';">'+m.v+'</div>'
+        +'<div style="font-size:9px;color:#9E9580;">'+m.u+'</div>'
+        +'<div style="font-size:8px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.3px;">'+m.l+'</div>'
+        +'</div>';
+    }).join('');
+    var scoreColor=result.score>=8?'#2A6030':result.score>=5?'#C9A84C':'#C0392B';
+    resultHtml='<div style="margin-top:10px;padding-top:10px;border-top:1px solid #EAE2D0;">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+      +'<div style="text-align:center;background:#F0F7F2;border-radius:10px;padding:8px 12px;">'
+      +'<div style="font-size:22px;font-weight:800;color:'+scoreColor+';">'+result.score+'</div>'
+      +'<div style="font-size:9px;color:#5A7A5C;text-transform:uppercase;">/10</div>'
+      +'</div>'
+      +'<div style="flex:1;font-size:12px;color:#5A7A5C;font-style:italic;">'+result.scoreUitleg+'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'+macroGrid+'</div>'
+      +(result.tips&&result.tips.length
+        ?'<div style="background:#FFFBEF;border-radius:8px;padding:10px;">'
+        +'<div style="font-size:10px;font-weight:700;color:#856404;text-transform:uppercase;margin-bottom:6px;">&#x1F4A1; Tips</div>'
+        +result.tips.map(function(t){return '<div style="font-size:11px;color:#5A5020;padding:3px 0;border-bottom:1px solid #F5EED5;">&#x2022; '+t+'</div>';}).join('')
+        +'</div>':'')
+      +'<div style="font-size:9px;color:#C0C0C0;text-align:center;margin-top:6px;font-style:italic;">Schatting op basis van omschrijving &middot; '+new Date(result.ts||Date.now()).toLocaleDateString('nl-BE')+'</div>'
+      +'</div>';
+  }
+
+  return '<div class="card" style="border-left:3px solid '+mealColors[k]+';background:#FAFFF9;">'
+    +'<div class="card-head"><div class="card-icon-box">&#x1F9EA;</div><span class="card-title">Voedingsanalyse AI</span></div>'
+    +btnHtml
+    +resultHtml
+    +'</div>';
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -1055,4 +1140,27 @@ function render(){
 render();
 </script>
 </body>
-</html>'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030;border:1px solid #A8D4B8':'#FFECEC;color:#C0392B;border:1px solid #FFCDD0')+';border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse '+(isAnalyseEnabled(c.email)?'aan':'uit')+'</button>'+
+</html>'<button onclick="event.stopPropagation();toggleAnalyse(\''+c.email+'\')" style="background:'+(isAnalyseEnabled(c.email)?'#EAF4F2;color:#2A6030;border:1px solid #A8D4B8':'#FFECEC;color:#C0392B;border:1px solid #FFCDD0')+';border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse '+(isAnalyseEnabled(c.email)?'aan':'uit')+'</button>'+  var anlKeys=Object.keys(anlResults);
+  var anlSec=anlKeys.length
+    ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+    +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'
+    +anlKeys.map(function(k){
+      var r=anlResults[k];
+      var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';
+      var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';
+      return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;">'
+        +'<div style="display:flex;align-items:center;margin-bottom:5px;">'
+        +'<span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span>'
+        +'<span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span>'
+        +'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+        +(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')
+        +(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')
+        +(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')
+        +(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')
+        +'</div>'
+        +(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:4px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')
+        +'</div>';
+    }).join('')+'</div>'
+    :'';
+
