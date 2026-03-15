@@ -135,12 +135,16 @@ function findAdmin(e){var b=ADMINS.find(function(a){return a.email===e;});if(b)r
 const SHAPEVIEW='https://planner.shapeview.be/?id=5ee2235fda862';
 const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghurt, fruit...'},lunch:{label:'Middagmaal',icon:'\u2600\uFE0F',ph:'bv. salade, soep, broodje...'},evening:{label:'Avondmaal',icon:'\uD83C\uDF19',ph:'bv. pasta, vis, groenten...'}};
 
-var firebaseConfig={apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",authDomain:"befit-marke.firebaseapp.com",projectId:"befit-marke",storageBucket:"befit-marke.firebasestorage.app",messagingSenderId:"141778728988",appId:"1:141778728988:web:1df297f0142176cb6a07d9"};
+var firebaseConfig={apiKey:"AIzaSyBz_bDfzWoENfBubDPB3IEufuQC_Y0Bv4c",authDomain:"befit-marke-c9f94.firebaseapp.com",projectId:"befit-marke-c9f94",storageBucket:"befit-marke-c9f94.firebasestorage.app",messagingSenderId:"909935308502",appId:"1:909935308502:web:a5925dc51238ea6d5c2377"};
 firebase.initializeApp(firebaseConfig);
 var fsdb=firebase.firestore();
+// Test Firebase connection on load
+fsdb.collection("data").limit(1).get()
+  .then(function(){console.log("✅ Firestore verbonden");document.title="✅ Be Fit";setTimeout(function(){document.title="Be Fit";},2000);})
+  .catch(function(e){console.error("❌ Firestore fout:",e.message);document.title="❌ Firestore fout";});
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
-const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
+const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).then(function(){}).catch(function(e){console.warn("Firestore write failed for",k,":",e.message);});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
 async function syncFromFirestore(email){
   var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins","analyse_day:"+email+":"+today(),"goals:"+email,"measurements:"+email];
   for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds,"wellbeing:"+email+":"+ds);["morning","lunch","evening"].forEach(function(k){keys.push("analyse:"+email+":"+ds+":"+k);});}
