@@ -1072,7 +1072,7 @@ function render(){
   // CLIENT APP
   var D=new Date(),months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   var tab=S.tab;
-  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock()+wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():summaryBlock();
+  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='gevoel'?wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():summaryBlock();
   var unreadChat=getChat(S.user.email).filter(function(m){return m.from==='admin'&&!m.read;}).length;
   var unreadNews=unreadBroadcastCount(S.user.email);
   function navItem(id,icon,label,active,badge){
@@ -1092,13 +1092,14 @@ function render(){
     +navItem('lunch','\u2600\uFE0F','Middag',tab==='lunch',0)
     +navItem('evening','\uD83C\uDF19','Avond',tab==='evening',0)
     +navItem('water','\uD83D\uDCA7','Water',tab==='water',0)
+    +navItem('gevoel','\u2728','Gevoel',tab==='gevoel',0)
     +navItem('analyse','\uD83E\uDD66','Analyse',tab==='analyse',0)
     +navItem('weight','\u2696\uFE0F','Gewicht',tab==='weight',0)
     +navItem('appt','\uD83D\uDCC5','Agenda',tab==='appt',0)
     +navItem('profile','\u2699\uFE0F','Profiel',tab==='profile',0)
     +navItem('chat','\uD83D\uDCAC','Chat',tab==='chat',unreadChat||0)
     +navItem('news','\uD83D\uDCE3','Nieuws',tab==='news',unreadNews||0)
-    +    +navItem('summary','\uD83D\uDCCB','Dag',tab==='summary',0)
+    +navItem('summary','\uD83D\uDCCB','Dag',tab==='summary',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
