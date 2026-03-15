@@ -582,7 +582,7 @@ async function runPhotoAnalyse(input){
       var selDate=getSummaryDate();
       var resp=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},
         body:JSON.stringify({
           model:'claude-sonnet-4-6',
           max_tokens:600,
@@ -632,7 +632,7 @@ async function runAnalyse(){
       +'{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"korte uitleg","tips":["tip1","tip2","tip3"]}';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:600,
@@ -689,7 +689,7 @@ async function runMealAnalyse(meal){
   S.analyseLoading=meal;render();
   try{
     var prompt='Analyseer deze '+mealName+':\n\n'+items.map(function(i){return '- '+i.t;}).join('\n')+'\n\nAntwoord ENKEL in dit JSON-formaat:\n{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"uitleg","tips":["tip1","tip2"]}';
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,system:'Je bent een voedingsdeskundige assistent. Antwoord in het Nederlands en enkel in het gevraagde JSON-formaat.',messages:[{role:'user',content:prompt}]})});
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,system:'Je bent een voedingsdeskundige assistent. Antwoord in het Nederlands en enkel in het gevraagde JSON-formaat.',messages:[{role:'user',content:prompt}]})});
     var data=await resp.json();
     if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=null;render();return;}
     if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=null;render();return;}
