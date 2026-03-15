@@ -127,6 +127,24 @@ const LOGO_B64="/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQw
 function logoSVG(w){w=w||180;var h=Math.round(w*0.42);return '<img src="data:image/png;base64,'+LOGO_B64+'" width="'+w+'" height="'+h+'" style="display:block;object-fit:contain" alt="Be Fit logo"/>';}
 function logoBlock(w,fs){fs=fs||15;return '<div style="display:flex;flex-direction:column;align-items:flex-start;">'+logoSVG(w)+'<div style="font-family:\'Playfair Display\',serif;font-size:'+fs+'px;font-weight:700;color:#4A8E7B;letter-spacing:4px;margin-top:2px;padding-left:2px;">BE FIT<span style="font-size:'+Math.round(fs*0.6)+'px;vertical-align:super;letter-spacing:0;">&copy;</span></div></div>';}
 
+const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'}];
+const SUPER_ADMIN='delphine@be-fit.be';
+function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
+function findAdmin(e){var b=ADMINS.find(function(a){return a.email===e;});if(b)return b;return getExtraAdmins().find(function(a){return a.email===e;})||null;}
+const SHAPEVIEW='https://planner.shapeview.be/?id=5ee2235fda862';
+const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghurt, fruit...'},lunch:{label:'Middagmaal',icon:'\u2600\uFE0F',ph:'bv. salade, soep, broodje...'},evening:{label:'Avondmaal',icon:'\uD83C\uDF19',ph:'bv. pasta, vis, groenten...'}};
+
+var firebaseConfig={apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",authDomain:"befit-marke.firebaseapp.com",projectId:"befit-marke",storageBucket:"befit-marke.firebasestorage.app",messagingSenderId:"141778728988",appId:"1:141778728988:web:1df297f0142176cb6a07d9"};
+firebase.initializeApp(firebaseConfig);
+var fsdb=firebase.firestore();
+function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
+function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
+const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
+setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
+async function syncFromFirestore(email){var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins"];for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds);["morning","lunch","evening"].forEach(function(k){var ak="analyse:"+email+":"+ds+":"+k;keys.push(ak);});}await Promise.all(keys.map(async function(k){try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();if(snap.exists)localStorage.setItem(k,snap.data().v);}catch(e){}}));}
+async function syncAllFromFirestore(){try{var snap=await fsdb.collection("data").get();snap.forEach(function(doc){localStorage.setItem(fromFsKey(doc.id),doc.data().v);});}catch(e){}}
+
+
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').then(function(reg){console.log('SW registered');}).catch(function(e){});}
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
@@ -147,24 +165,6 @@ function toggleChat(email){var ud=DB.get('user:'+email);if(!ud)return;ud.chatEna
 function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub)sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd!','login');}
 function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Ingetrokken');loadAdminClients();render();}
 function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Verwijderd');loadAdminClients();render();}
-setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
-const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'}];
-const SUPER_ADMIN='delphine@be-fit.be';
-function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
-function findAdmin(e){var b=ADMINS.find(function(a){return a.email===e;});if(b)return b;return getExtraAdmins().find(function(a){return a.email===e;})||null;}
-const SHAPEVIEW='https://planner.shapeview.be/?id=5ee2235fda862';
-const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghurt, fruit...'},lunch:{label:'Middagmaal',icon:'\u2600\uFE0F',ph:'bv. salade, soep, broodje...'},evening:{label:'Avondmaal',icon:'\uD83C\uDF19',ph:'bv. pasta, vis, groenten...'}};
-
-var firebaseConfig={apiKey:"AIzaSyBQta7fOm_Bl_PqEkizNUFi8449iXscfDA",authDomain:"befit-marke.firebaseapp.com",projectId:"befit-marke",storageBucket:"befit-marke.firebasestorage.app",messagingSenderId:"141778728988",appId:"1:141778728988:web:1df297f0142176cb6a07d9"};
-firebase.initializeApp(firebaseConfig);
-var fsdb=firebase.firestore();
-function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
-function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
-const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).catch(function(){});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
-async function syncFromFirestore(email){var keys=["user:"+email,"chat:"+email,"broadcast:messages","broadcast:read:"+email,"weights:"+email,"push:sub:"+email,"push:backend:url","anthropic:apikey","extra:admins"];for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");keys.push("diary:"+email+":"+ds,"feedback:"+email+":"+ds);["morning","lunch","evening"].forEach(function(k){var ak="analyse:"+email+":"+ds+":"+k;keys.push(ak);});}await Promise.all(keys.map(async function(k){try{var snap=await fsdb.collection("data").doc(fsKey(k)).get();if(snap.exists)localStorage.setItem(k,snap.data().v);}catch(e){}}));}
-async function syncAllFromFirestore(){try{var snap=await fsdb.collection("data").get();snap.forEach(function(doc){localStorage.setItem(fromFsKey(doc.id),doc.data().v);});}catch(e){}}
-
-
 var S={screen:'login',user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,showInvite:false,summaryDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -174,7 +174,7 @@ function showToast(msg){msg=msg||'\u2713 Opgeslagen';var t=document.getElementBy
 function closeNotif(){document.getElementById('notif-bar').style.display='none';}
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';localNotif('Be Fit Marke',msg,'befit-reminder');}
 
-function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+today(),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
+function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+getMealDate(),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+today());if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:');}).map(function(k){return DB.get(k);}).filter(Boolean).sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
@@ -834,6 +834,33 @@ function activityBlock(){
     +(rows||'<div style="font-size:12px;color:#9E9580;text-align:center;padding:10px 0;">Nog geen activiteiten vandaag</div>')
     +'</div>';
 }
+function getMealDate(){return S.mealDate||today();}
+function setMealDate(d){
+  var isToday=d===today();
+  S.mealDate=d;
+  if(!isToday){
+    var diary=DB.get('diary:'+S.user.email+':'+d)||{meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,reminders:[],activities:[]};
+    S.meals=diary.meals||{morning:[],lunch:[],evening:[]};
+    S.snacks=diary.snacks||{morning:[],lunch:[],evening:[]};
+    S.water=diary.water||0;
+    S.activities=diary.activities||[];
+    // Load from Firestore
+    fsdb.collection('data').doc(fsKey('diary:'+S.user.email+':'+d)).get().then(function(snap){
+      if(snap.exists){
+        var dd=JSON.parse(snap.data().v);
+        S.meals=dd.meals||{morning:[],lunch:[],evening:[]};
+        S.snacks=dd.snacks||{morning:[],lunch:[],evening:[]};
+        S.water=dd.water||0;
+        S.activities=dd.activities||[];
+        localStorage.setItem('diary:'+S.user.email+':'+d,JSON.stringify(dd));
+      }
+      render();
+    }).catch(function(){render();});
+  } else {
+    loadUserData();
+  }
+  render();
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -928,7 +955,7 @@ function render(){
     +'<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:700;color:#4A8E7B;letter-spacing:4px;">BE FIT<span style="font-size:10px;vertical-align:super;letter-spacing:0;">&copy;</span></div>'
     +'<div class="header-user" style="margin-left:auto;"><strong>'+S.user.name+'</strong>'+D.getDate()+' '+months[D.getMonth()]+' '+D.getFullYear()+'<button class="btn-logout" onclick="logout()">Uitloggen</button></div>'
     +'</div>'
-    +'<div class="diary-title-bar"><div class="diary-title">Mijn persoonlijk eetdagboekje</div></div>'
+    +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:6px 14px;gap:8px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:4px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:11px;margin:0;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;')+'border:none;border-radius:6px;padding:4px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
     +'<div class="nav">'
     +navItem('morning','\uD83C\uDF05','Ontbijt',tab==='morning',0)
     +navItem('lunch','\u2600\uFE0F','Middag',tab==='lunch',0)
