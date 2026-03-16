@@ -499,6 +499,7 @@ function renderAdminClient(c,i){
     if(d&&d.water)_mealBadges+='<span style="font-size:10px;color:#3A8FBD;font-weight:700;margin-left:4px;">\uD83D\uDCA7'+d.water+'</span>';
     if(!_mealBadges)_mealBadges='<span style="color:#C0392B;font-size:10px;">Nog niet ingevuld</span>';
   }
+  var wtOn=isWeightEnabled(c.email);
   var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
   var anlOn=isAnalyseEnabled(c.email);
   var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
@@ -587,6 +588,7 @@ function renderAdminClient(c,i){
       ?'<div style="display:flex;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
       +'<button onclick="toggleChat(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
       +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
+      +'<button onclick="toggleWeight(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(wtOn?'#EAF4F2':'#F5F5F5')+';color:'+(wtOn?'#2A6030':'#9E9580')+';border:1px solid '+(wtOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2696;&#xFE0F; Gewicht <span style="font-size:10px;background:'+(wtOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(wtOn?'AAN':'UIT')+'</span></button>'
       +'</div>'
       :'')
     +'<div style="display:flex;align-items:center;gap:6px;">'
@@ -631,6 +633,8 @@ function getExtraAdmins(){return DB.get('extra:admins')||[];}
 function saveExtraAdmin(){var name=document.getElementById('new-admin-name').value.trim(),email=document.getElementById('new-admin-email').value.trim().toLowerCase(),pass=document.getElementById('new-admin-pass').value;if(!name||!email||!pass){showToast('Vul alle velden in');return;}if(pass.length<4){showToast('Wachtwoord min. 4 tekens');return;}var list=getExtraAdmins();if(list.find(function(a){return a.email===email;})){showToast('E-mail bestaat al');return;}list.push({email:email,name:name,pass:btoa(pass),created:Date.now()});DB.set('extra:admins',list);DB.set('adminpass:'+email,btoa(pass));showToast('\u2713 Di\u00ebtiste aangemaakt');render();}
 function deleteExtraAdmin(email){var list=getExtraAdmins().filter(function(a){return a.email!==email;});DB.set('extra:admins',list);DB.del('adminpass:'+email);showToast('Verwijderd');render();}
 function isAnalyseEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return !!(ud&&ud.analyseEnabled===true);}
+function isWeightEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return ud&&ud.weightEnabled===true;}
+function toggleWeight(email){var ud=DB.get('user:'+email);if(!ud)return;ud.weightEnabled=!ud.weightEnabled;DB.set('user:'+email,ud);showToast(ud.weightEnabled?'\u2713 Gewicht vrijgeschakeld':'Gewicht uitgeschakeld');loadAdminClients();render();}
 function toggleAnalyse(email){var ud=DB.get('user:'+email);if(!ud)return;ud.analyseEnabled=!ud.analyseEnabled;DB.set('user:'+email,ud);showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');loadAdminClients();render();}
 function getMealAnalyseKey(email,dateStr,meal){return 'analyse:'+email+':'+dateStr+':'+meal;}
 function mealAlreadyAnalysed(email,dateStr,meal){return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;}
@@ -1001,6 +1005,13 @@ async function runAnalyse(){
   S.analyseLoading=false;render();
 }
 function weightBlock(){
+  if(!isWeightEnabled()){
+    return '<div class="card" style="text-align:center;padding:40px 20px;">'
+      +'<div style="font-size:40px;margin-bottom:12px;">&#x2696;&#xFE0F;</div>'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Gewicht niet beschikbaar</div>'
+      +'<div style="font-size:13px;color:#9E9580;">De gewichtsopvolging is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
+      +'</div>';
+  }
   var list=getWeights(S.user.email),todayStr=today();
   var existing=list.find(function(w){return w.date===todayStr;});
   var entryCard='<div class="card"><div class="card-head"><div class="card-icon-box">&#x2696;&#xFE0F;</div><span class="card-title">Gewicht opvolgen</span></div><div style="display:flex;gap:8px;margin-bottom:12px;"><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:5px;">Datum</div><input type="date" id="w-date" value="'+todayStr+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:5px;">Gewicht (kg)</div><input type="number" id="w-kg" step="0.1" min="20" max="300" placeholder="bv. 68.5" value="'+(existing?existing.kg:'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 11px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;"/></div></div><button onclick="var d=document.getElementById(\'w-date\').value,k=parseFloat(document.getElementById(\'w-kg\').value);if(d&&k>0)saveWeight(d,k);else showToast(\'Vul datum en gewicht in\');" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button>'+(existing?'<div style="font-size:11px;color:#4A8E7B;text-align:center;margin-top:8px;">&#x2713; Vandaag: <strong>'+existing.kg+' kg</strong></div>':'')+'</div>';
