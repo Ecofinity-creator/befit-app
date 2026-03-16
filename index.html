@@ -701,8 +701,8 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
     +bodyHtml
     +'</div>'
     +(extraLinks||'')
-    +'<div style="text-align:center;margin-top:24px;font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:.5px;">'
-    +'Powered by <strong style="color:rgba(255,255,255,0.45);">Verdify</strong> &copy; '+new Date().getFullYear()+'</div>'
+    +'<div style="text-align:center;margin-top:24px;font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:.5px;">'
+    +'Powered by <strong style="color:rgba(255,255,255,0.75);">Verdify</strong> &copy; '+new Date().getFullYear()+'</div>'
     +'</div>';
 }
 
@@ -1820,7 +1820,7 @@ function render(){
         +(S.user&&S.user.email===SUPER_ADMIN?(function(){var ts=S.adminTab==='settings';return '<div onclick="S.adminTab=\'settings\';render()" style="'+tabStyle+'color:'+(ts?'#1E3D20':'#9E9580')+';border-bottom:'+(ts?'3px solid #4A8E7B':'3px solid transparent')+';margin-bottom:-2px;">&#x2699;&#xFE0F; Instellingen</div>';})():'')
       +'</div>'
       +'<div style="background:#F5F0E6;min-height:calc(100vh - 120px);padding-bottom:20px;">'+renderAdminTabContent(ch)
-    +'<div style="text-align:center;padding:16px 0 8px;font-size:9px;color:rgba(30,61,32,0.3);letter-spacing:.6px;">'
+    +'<div style="text-align:center;padding:16px 0 8px;font-size:9px;color:rgba(30,61,32,0.55);letter-spacing:.6px;">'
     +'Powered by <span style="font-weight:700;">Verdify</span> &mdash; &copy; '+new Date().getFullYear()+'</div>'
     +'</div>';
     setTimeout(function(){S.adminClients.forEach(function(c,i){var el=document.getElementById('admin-chat-msgs-'+i);if(el)el.scrollTop=el.scrollHeight;});},50);
@@ -1873,8 +1873,8 @@ function render(){
     +navItem('templates','⭐','Sjablonen',tab==='templates',0)
     +navItem('steps','👟','Stappen',tab==='steps',0)
     +'</div>'
-    +'<div class="content">'+tabContent+'<div style="text-align:center;padding:18px 0 6px;font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:.6px;">'
-    +'Powered by <span style="font-weight:700;color:rgba(255,255,255,0.3);">Verdify</span> &mdash; &copy; '+new Date().getFullYear()+'</div>'
+    +'<div class="content">'+tabContent+'<div style="text-align:center;padding:18px 0 6px;font-size:9px;color:rgba(255,255,255,0.55);letter-spacing:.6px;background:rgba(0,0,0,0.15);padding:10px;border-radius:8px;">'
+    +'Powered by <span style="font-weight:700;color:rgba(255,255,255,0.8);font-style:italic;">Verdify</span> &mdash; &copy; '+new Date().getFullYear()+'</div>'
     +'</div>'
     +'<button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Donkere modus">'
     +(isDarkMode()?'☀️':'🌙')+'</button>';
