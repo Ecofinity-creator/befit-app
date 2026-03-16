@@ -190,7 +190,7 @@ async function loadAdminClientsFromFirestore(){
     // Load user profiles
     var snap=await fsdb.collection('data')
       .orderBy('__name__')
-      .startAt(fsKey('user:a'))
+      .startAt(fsKey('user:'))
       .endAt(fsKey('user:\uf8ff'))
       .get();
     snap.forEach(function(doc){
@@ -232,7 +232,7 @@ function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.me
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();return;}err.textContent='Even geduld…';err.classList.add('show');
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
@@ -243,10 +243,19 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
   syncFromFirestore(email).then(function(){loadUserData();render();});
   startDiarySync(email);}
-function doRegister(){var name=document.getElementById('reg-name').value.trim(),email=document.getElementById('reg-email').value.trim().toLowerCase(),pass=document.getElementById('reg-pass').value,err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');err.classList.remove('show');ok.classList.remove('show');if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(DB.get('user:'+email)){err.textContent='Al geregistreerd.';err.classList.add('show');return;}DB.set('user:'+email,{email:email,name:name,pass:btoa(pass),created:Date.now(),status:'pending'});ok.textContent='Account aangemaakt! Je wordt ingelogd...';ok.classList.add('show');setTimeout(function(){S.user={email:email,name:name,isAdmin:false};S.screen='app';S.meals={morning:[],lunch:[],evening:[]};S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];startReminderCheck();render();},1200);}
+function doRegister(){var name=document.getElementById('reg-name').value.trim(),email=document.getElementById('reg-email').value.trim().toLowerCase(),pass=document.getElementById('reg-pass').value,err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');err.classList.remove('show');ok.classList.remove('show');if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(DB.get('user:'+email)){err.textContent='Al geregistreerd.';err.classList.add('show');return;}DB.set('user:'+email,{email:email,name:name,pass:btoa(pass),created:Date.now(),status:'pending'});
+  // Notify admin via Firestore listener - also send push to all admins
+  var adminEmails=['delphine@be-fit.be'].concat((DB.get('extra:admins')||[]).map(function(a){return a.email;}));
+  adminEmails.forEach(function(ae){
+    var sub=DB.get('push:sub:'+ae);
+    if(sub&&typeof sendPushToClient==='function')
+      sendPushToClient(sub,'\uD83D\uDC64 Nieuwe aanmelding',name+' wacht op goedkeuring.','new-user');
+  });
+  ok.textContent='Account aangemaakt! Je di\u00ebtiste zal je account goedkeuren.';
+  ok.classList.add('show');setTimeout(function(){S.screen='login';render();},2500);}
 function doForgot(){var email=document.getElementById('fg-email').value.trim().toLowerCase(),err=document.getElementById('fg-err');err.classList.remove('show');if(!email){err.textContent='Vul je e-mailadres in.';err.classList.add('show');return;}var isAdmin=!!findAdmin(email),isClient=!!DB.get('user:'+email);if(!isAdmin&&!isClient){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}S._forgotEmail=email;S._forgotIsAdmin=isAdmin;S.screen='changepass';render();}
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
-function logout(){clearInterval(S._reminderInterval);S.user=null;S.screen='login';render();}
+function logout(){clearInterval(S._reminderInterval);if(typeof stopAdminSync==='function')stopAdminSync();S.user=null;S.screen='login';render();}
 
 function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k]&&getMealDate()===today())startTimer(k);render();}
 function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
@@ -629,7 +638,50 @@ function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.statu
 function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Verwijderd');loadAdminClients();render();}
 function showInviteModal(){S.showInvite=true;render();setTimeout(function(){var el=document.getElementById('invite-email');if(el)el.focus();},100);}
 function hideInviteModal(){S.showInvite=false;render();}
-function sendInvite(){var email=document.getElementById('invite-email').value.trim(),name=document.getElementById('invite-name').value.trim();if(!email){showToast('Vul een e-mailadres in');return;}var appUrl='https://ecofinity-creator.github.io/befit-app/';var adminName=S.user?S.user.name:'Be Fit Marke';var subject=encodeURIComponent('Uitnodiging: Je persoonlijk eetdagboekje van Be Fit Marke');var body=encodeURIComponent((name?'Beste '+name+',%0D%0A%0D%0A':'')+'Je di\u00ebtiste '+adminName+' nodigt je uit.%0D%0A%0D%0A\uD83D\uDD17 '+appUrl+'%0D%0A%0D%0AiPhone: Safari \u2192 deel \u2191 \u2192 Zet op beginscherm%0D%0AAndroid: Chrome \u2192 drie puntjes \u2192 Toevoegen aan beginscherm%0D%0A%0D%0AMet vriendelijke groeten,%0D%0A'+adminName);window.open('mailto:'+email+'?subject='+subject+'&body='+body,'_blank');showToast('\u2713 E-mailclient geopend');hideInviteModal();}
+function sendInvite(){
+  var email=document.getElementById('invite-email').value.trim();
+  var name=document.getElementById('invite-name').value.trim();
+  if(!email){showToast('Vul een e-mailadres in');return;}
+  var appUrl='https://ecofinity-creator.github.io/befit-app/';
+  var adminName=S.user?S.user.name:'Be Fit Marke';
+  var nl='%0D%0A';
+  var subject=encodeURIComponent('Uitnodiging: Mijn persoonlijk eetdagboekje van Be Fit Marke');
+  var lines=[];
+  if(name)lines.push('Beste '+name+',','');
+  lines.push(
+    'Je di\u00ebtiste '+adminName+' nodigt je uit om het persoonlijk eetdagboekje te gebruiken.',
+    '',
+    '--- INSTALLEER DE APP ---',
+    '',
+    '\uD83D\uDD17 Open de link:',
+    appUrl,
+    '',
+    '\uD83D\uDCF1 Op iPhone (Safari):',
+    '  1. Tik op het deel-icoontje \u2191',
+    '  2. Kies \'Zet op beginscherm\'',
+    '',
+    '\uD83E\uDD16 Op Android (Chrome):',
+    '  1. Tik op de drie puntjes \u22EE',
+    '  2. Kies \'Toevoegen aan beginscherm\'',
+    '',
+    '--- REGISTREREN ---',
+    '',
+    '1. Open de app via bovenstaande link',
+    '2. Klik op \'Registreer hier\'',
+    '3. Vul je naam, e-mailadres en wachtwoord in',
+    '4. Wacht op goedkeuring van je di\u00ebtiste',
+    '',
+    'Heb je vragen? Neem contact op met '+adminName+'.',
+    '',
+    'Met vriendelijke groeten,',
+    adminName,
+    'Be Fit Marke'
+  );
+  var body=encodeURIComponent(lines.join('\r\n'));
+  window.open('mailto:'+email+'?subject='+subject+'&body='+body,'_blank');
+  showToast('\u2713 E-mailclient geopend');
+  hideInviteModal();
+}
 setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
 function getWeights(email){return DB.get('weights:'+(email||S.user.email))||[];}
 function saveWeight(dateStr,kg){var list=getWeights(S.user.email);var idx=list.findIndex(function(w){return w.date===dateStr;});if(idx>=0){list[idx].kg=kg;}else{list.push({date:dateStr,kg:kg});}list.sort(function(a,b){return a.date.localeCompare(b.date);});DB.set('weights:'+S.user.email,list);showToast('\u2713 Gewicht opgeslagen');render();}
@@ -1165,6 +1217,27 @@ function wellbeingBlock(){
     +'<div style="font-size:10px;color:#9E9580;text-align:center;font-style:italic;">Je di\u00ebtiste kan deze scores meevolgen</div>'
     +'</div>';
 }
+var _adminListener=null;
+function startAdminSync(){
+  if(_adminListener)_adminListener();
+  // Listen for any new user registrations in Firestore
+  _adminListener=fsdb.collection('data')
+    .orderBy('t','desc').limit(20)
+    .onSnapshot(function(snap){
+      var hasNewUser=false;
+      snap.docChanges().forEach(function(change){
+        if(change.type==='added'||change.type==='modified'){
+          var key=fromFsKey(change.doc.id);
+          if(key.startsWith('user:')&&change.doc.data().v){
+            localStorage.setItem(key,change.doc.data().v);
+            hasNewUser=true;
+          }
+        }
+      });
+      if(hasNewUser&&S.screen==='admin'){loadAdminClients();render();}
+    },function(){});
+}
+function stopAdminSync(){if(_adminListener){_adminListener();_adminListener=null;}}
 function render(){
   var app=document.getElementById('app');
 
