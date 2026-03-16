@@ -500,7 +500,7 @@ function renderAdminClient(c,i){
     if(!_mealBadges)_mealBadges='<span style="color:#C0392B;font-size:10px;">Nog niet ingevuld</span>';
   }
   var wtOn=isWeightEnabled(c.email);
-  var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
+    var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
   var anlOn=isAnalyseEnabled(c.email);
   var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
   var hasData=_aDate===today()?(d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0)):_dHasData;
@@ -554,7 +554,7 @@ function renderAdminClient(c,i){
     :'';
   // Goals editor
   var cg=getGoals(c.email);
-  var goalSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+  var goalSec=wtOn?('<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
     +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">&#x1F3AF; Doelstellingen</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
     +'<div><div style="font-size:10px;font-weight:700;color:#9E9580;margin-bottom:3px;">Calorieën/dag</div>'
@@ -569,7 +569,7 @@ function renderAdminClient(c,i){
     +'<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#9E9580;margin-bottom:3px;">Persoonlijk advies / tip</div>'
     +'<input type="text" id="goal-note-'+i+'" value="'+(cg.note||'')+'" placeholder="bv. Vermijd suiker na 20u" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div>'
     +'<button onclick="event.stopPropagation();saveGoalsAdmin(\''+c.email+'\','+i+')" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Doelstellingen opslaan</button>'
-    +'</div>';
+    +'</div>'):'';
 
   var cm=getChat(c.email),cb=cm.length?cm.map(function(m){return '<div class="chat-bubble '+m.from+'" style="max-width:90%">'+(m.from==='admin'?'<div class="cb-name">\uD83C\uDF3F '+m.name+'</div>':'<div class="cb-name" style="color:#C9A84C;">'+m.name+'</div>')+m.text+'<span class="cb-time">'+chatFmtTime(m.ts)+'</span></div>';}).join(''):'<div style="font-size:12px;color:#C5BC9E;font-style:italic;text-align:center;padding:16px;">Nog geen berichten</div>';
   var sOC2="event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")",kd="if(event.key==='Enter'){event.stopPropagation();sendAdminMsg('"+c.email+"',"+i+")}";
@@ -621,7 +621,21 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').then(function(reg){console.log('SW registered');}).catch(function(e){});}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=659107').then(function(reg){
+    reg.update();
+    setInterval(function(){reg.update();},60000);
+    reg.addEventListener('updatefound',function(){
+      var newSW=reg.installing;
+      newSW.addEventListener('statechange',function(){
+        if(newSW.state==='installed'&&navigator.serviceWorker.controller){
+          newSW.postMessage({type:'SKIP_WAITING'});
+        }
+      });
+    });
+  }).catch(function(e){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    window.location.reload();
+  });}
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
 async function requestNotifPermission(){if(!('Notification' in window))return;if(Notification.permission==='default'){var p=await Notification.requestPermission();if(p==='granted')subscribePush();}else if(Notification.permission==='granted')subscribePush();}
