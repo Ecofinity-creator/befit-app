@@ -253,7 +253,7 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
   if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
-  S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
+  S.user={email:email,name:ud.name,isAdmin:false};S.mealDate=null;S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
   syncFromFirestore(email).then(function(){loadUserData();render();});
   startDiarySync(email);}
@@ -780,7 +780,10 @@ function getMealDate(){return S.mealDate||today();}
 function setMealDate(d){
   S.mealDate=d;
   // If going back to today, use live S state (already in sync via listener)
-  if(d===today()){loadUserData();render();return;}
+  if(d===today()){
+    S.mealDate=null; // clear so today() is always used for today
+    loadUserData();render();return;
+  }
   // Load from localStorage first for instant display
   var diary=DB.get('diary:'+S.user.email+':'+d)||{meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,reminders:[],activities:[]};
   S.meals=diary.meals||{morning:[],lunch:[],evening:[]};S.snacks=diary.snacks||{morning:[],lunch:[],evening:[]};S.water=diary.water||0;S.activities=diary.activities||[];
@@ -1614,7 +1617,21 @@ function stepsBlock(){
     +'<div style="font-size:10px;color:#9E9580;text-align:center;font-style:italic;padding-bottom:8px;">Werkt op smartphones via bewegingssensor. Houd de app open.</div>'
     +'</div>';
 }
+// Reset mealDate at midnight or if stale
+var _lastRenderDate=null;
+function resetIfNewDay(){
+  var t=today();
+  if(_lastRenderDate&&_lastRenderDate!==t){
+    // New day! Reset mealDate and reload
+    if(S.mealDate&&S.mealDate!==t){
+      S.mealDate=null;
+      if(S.user&&!S.user.isAdmin){loadUserData();}
+    }
+  }
+  _lastRenderDate=t;
+}
 function render(){
+  resetIfNewDay();
   var app=document.getElementById('app');
 
   if(S.screen==='login'){
