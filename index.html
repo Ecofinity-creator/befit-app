@@ -607,9 +607,16 @@ function renderAdminClient(c,i){
     if(!items.length)return '';
     return '<div style="margin-bottom:8px;">'
       +'<div style="font-size:10px;font-weight:700;color:'+mealColors2[k]+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+mealLabels[k]+'</div>'
-      +items.map(function(it){return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #F5F0E6;">'
+      +items.map(function(it,ii){var fbKey='itemfb:'+c.email+':'+today()+':'+k+':'+ii;var fbVal=DB.get(fbKey)||'';return '<div style="padding:4px 0;border-bottom:1px solid #F5F0E6;">'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
         +'<span style="font-size:11px;color:#1E3D20;flex:1;">'+it.t+'</span>'
         +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
+        +'</div>'
+        +'<div style="display:flex;gap:4px;margin-top:3px;">'
+        +'<input type="text" value="'+fbVal+'" onclick="event.stopPropagation()" placeholder="Feedback op dit item..." '
+        +'onchange="DB.set(\'itemfb:'+c.email+':'+today()+':'+k+':'+ii+'\',this.value);showToast(\'\u2713 Opgeslagen\');" '
+        +'style="flex:1;border:1px solid #EAE2D0;border-radius:6px;padding:4px 8px;font-size:10px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
+        +'</div>'
         +'</div>';}).join('')
       +'</div>';
   }).join('');
@@ -625,7 +632,7 @@ function renderAdminClient(c,i){
   var actRows=(d&&d.activities||[]).map(function(a){
     return '<div style="font-size:11px;color:#4A8E7B;padding:2px 0;">🏃 '+a.type+' — '+a.dur+' min</div>';
   }).join('');
-  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' glazen water</div>':'';
+  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' gl / '+Math.round(d.water*0.15*10)/10+' L water</div>':'';
   var mealSec=(mealRows||snackRows||actRows||waterRow)
     ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
     +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">📋 Vandaag gegeten</div>'
@@ -1499,13 +1506,18 @@ function render(){
     +navItem('evening','🌙','Avond',tab==='evening',0)
     +navItem('water','💧','Water',tab==='water',0)
     +navItem('gevoel','🌟','Gevoel',tab==='gevoel',0)
-    +navItem('analyse','🔬','Analyse',tab==='analyse',0)
-    +navItem('weight','⚖️','Gewicht',tab==='weight',0)
+    +navItem('summary','📋','Dag',tab==='summary',0)
     +navItem('appt','📅','Agenda',tab==='appt',0)
     +navItem('profile','👤','Profiel',tab==='profile',0)
-    +navItem('chat','💬','Chat',tab==='chat',unreadChat||0)
     +navItem('news','📢','Nieuws',tab==='news',unreadNews||0)
-    +navItem('summary','📋','Dag',tab==='summary',0)
+    +(isAnalyseEnabled()?navItem('analyse','🔬','Analyse',tab==='analyse',0):'')
+    +(isWeightEnabled()?navItem('weight','⚖️','Gewicht',tab==='weight',0):'')
+    +((DB.get('user:'+S.user.email)||{}).chatEnabled!==false?navItem('chat','💬','Chat',tab==='chat',unreadChat||0):'')
+    +navItem('badges','🏅','Badges',tab==='badges',0)
+    +navItem('progress','📸',"Foto's",tab==='progress',0)
+    +navItem('templates','⭐','Sjablonen',tab==='templates',0)
+    +navItem('steps','👟','Stappen',tab==='steps',0)
+    +navItem('photos','📷','Fotos',tab==='photos',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
