@@ -1032,6 +1032,7 @@ async function runPhotoAnalyse(input){
       var result=JSON.parse(text);
       result.fromPhoto=true;
       DB.set('analyse:'+S.user.email+':'+selDate,result);
+      savePhotoToArchive(dataUrl,result.samenvatting||'',S.tab,selDate);
     }catch(err){
       showToast('Foto-analyse mislukt. Probeer opnieuw.');
       S.photoPreview=null;
@@ -1375,6 +1376,244 @@ function resetUserAccess(){
     }
   }).catch(function(){showToast('\u274C Fout bij opzoeken');});
 }
+
+// ── STREAKS ──────────────────────────────────────────────────
+function getStreak(email){
+  var e=email||S.user.email,streak=0,d=new Date();
+  for(var i=0;i<365;i++){
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var diary=DB.get('diary:'+e+':'+ds);
+    var ok=diary&&diary.meals&&(['morning','lunch','evening'].some(function(k){return diary.meals[k]&&diary.meals[k].length>0;}));
+    if(ok){streak++;}else if(i>0){break;}
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+function getLongestStreak(email){
+  var e=email||S.user.email,best=0,current=0,prev=null;
+  var dates=DB.keys().filter(function(k){return k.startsWith('diary:'+e+':');})
+    .map(function(k){return k.replace('diary:'+e+':','');})
+    .filter(function(d){return /^\d{4}-\d{2}-\d{2}$/.test(d);}).sort();
+  dates.forEach(function(ds){
+    var diary=DB.get('diary:'+e+':'+ds);
+    var ok=diary&&diary.meals&&(['morning','lunch','evening'].some(function(k){return diary.meals[k]&&diary.meals[k].length>0;}));
+    if(ok){
+      if(prev){var p=new Date(prev);p.setDate(p.getDate()+1);current=(p.toISOString().slice(0,10)===ds)?current+1:1;}
+      else current=1;
+      if(current>best)best=current;
+      prev=ds;
+    }else{current=0;prev=null;}
+  });
+  return best;
+}
+
+// ── BADGES ───────────────────────────────────────────────────
+var BADGES=[
+  {id:'first_day',   icon:'\uD83C\uDF31',label:'Eerste stap',    check:function(e){return getStreak(e)>=1;}},
+  {id:'streak_3',    icon:'\uD83D\uDD25',label:'3 op rij',       check:function(e){return getStreak(e)>=3;}},
+  {id:'week_1',      icon:'\uD83C\uDF1F',label:'1 week!',        check:function(e){return getLongestStreak(e)>=7;}},
+  {id:'streak_14',   icon:'\u26A1',      label:'2 weken!',       check:function(e){return getLongestStreak(e)>=14;}},
+  {id:'month_1',     icon:'\uD83C\uDFC5',label:'1 maand!',       check:function(e){return getLongestStreak(e)>=30;}},
+  {id:'water_goal',  icon:'\uD83D\uDCA7',label:'Watermeester',   check:function(e){var g=getGoals(e),d=DB.get('diary:'+e+':'+today());return !!(g.water&&d&&(d.water||0)>=g.water);}},
+  {id:'analyse_1',   icon:'\uD83D\uDD2C',label:'Voedingsexpert', check:function(e){return DB.keys().some(function(k){return k.startsWith('analyse:'+e+':');});}},
+  {id:'weight_track',icon:'\u2696\uFE0F',label:'Gewicht',        check:function(e){return getWeights(e).length>0;}},
+  {id:'photo_prog',  icon:'\uD83D\uDCF8',label:'Fotograaf',      check:function(e){return (DB.get('progress_photos:'+e)||[]).length>0;}},
+  {id:'steps_5k',    icon:'\uD83D\uDC5F',label:'5000 stappen',   check:function(e){return DB.keys().some(function(k){return k.startsWith('steps:'+e+':')&&(DB.get(k)||0)>=5000;});}},
+];
+function getEarnedBadges(email){
+  var e=email||S.user.email;
+  return BADGES.filter(function(b){try{return b.check(e);}catch(ex){return false;}});
+}
+function badgesBlock(){
+  var earned=getEarnedBadges(S.user.email);
+  var streak=getStreak(S.user.email),longest=getLongestStreak(S.user.email);
+  var streakHtml='<div style="display:flex;align-items:center;justify-content:center;gap:20px;padding:16px;background:linear-gradient(135deg,#1E3D20,#2A6030);border-radius:12px;margin-bottom:16px;">'
+    +'<div style="text-align:center;"><div style="font-size:36px;font-weight:800;color:#C9A84C;font-family:Playfair Display,serif;">'+streak+'</div>'
+    +'<div style="font-size:11px;color:#A8D4B8;text-transform:uppercase;letter-spacing:.6px;">Huidige streak</div>'
+    +'<div style="font-size:9px;color:#C9B97A;margin-top:2px;">dagen op rij \uD83D\uDD25</div></div>'
+    +'<div style="width:1px;height:50px;background:rgba(255,255,255,0.2);"></div>'
+    +'<div style="text-align:center;"><div style="font-size:36px;font-weight:800;color:#F0EAD6;font-family:Playfair Display,serif;">'+longest+'</div>'
+    +'<div style="font-size:11px;color:#A8D4B8;text-transform:uppercase;letter-spacing:.6px;">Langste streak</div>'
+    +'<div style="font-size:9px;color:#C9B97A;margin-top:2px;">\uD83C\uDFC6 Record</div></div></div>';
+  var grid='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">'
+    +BADGES.map(function(b){
+      var has=earned.find(function(e){return e.id===b.id;});
+      return '<div style="text-align:center;padding:8px 4px;border-radius:10px;background:'+(has?'#F0F7F2':'#F5F5F5')+';border:1px solid '+(has?'#A8D4B8':'#E0E0E0')+'" title="'+b.label+'">'
+        +'<div style="font-size:24px;'+(has?'':'filter:grayscale(100%);opacity:.3;')+'">'+b.icon+'</div>'
+        +'<div style="font-size:8px;font-weight:700;color:'+(has?'#1E3D20':'#9E9580')+';margin-top:3px;line-height:1.2;">'+b.label+'</div>'
+        +'</div>';
+    }).join('')+'</div>';
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">\uD83C\uDFC5</div>'
+    +'<span class="card-title">Badges & Streaks</span><span class="cbadge">'+earned.length+'/'+BADGES.length+'</span></div>'
+    +streakHtml+grid+'</div>';
+}
+
+// ── MAALTIJDSJABLONEN ─────────────────────────────────────────
+function getTemplates(){return DB.get('templates:'+S.user.email)||[];}
+function saveTemplate(name,meals,snacks){
+  var list=getTemplates();
+  list.unshift({id:Date.now().toString(),name:name,meals:meals,snacks:snacks});
+  if(list.length>20)list=list.slice(0,20);
+  DB.set('templates:'+S.user.email,list);
+  showToast('\u2713 Sjabloon "'+name+'" opgeslagen');render();
+}
+function deleteTemplate(id){DB.set('templates:'+S.user.email,getTemplates().filter(function(t){return t.id!==id;}));showToast('Verwijderd');render();}
+function applyTemplate(id){
+  var t=getTemplates().find(function(t){return t.id===id;});
+  if(!t||!confirm('Sjabloon "'+t.name+'" toepassen?'))return;
+  ['morning','lunch','evening'].forEach(function(k){
+    if(t.meals&&t.meals[k])S.meals[k]=(S.meals[k]||[]).concat(t.meals[k]);
+    if(t.snacks&&t.snacks[k])S.snacks[k]=(S.snacks[k]||[]).concat(t.snacks[k]);
+  });
+  saveUserData();showToast('\u2713 Sjabloon toegepast');render();
+}
+function templateBlock(){
+  var list=getTemplates();
+  var saveBtn='<div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">\u2795 Dagboek opslaan als sjabloon</div>'
+    +'<div style="display:flex;gap:8px;"><input id="tpl-name" type="text" placeholder="Naam sjabloon" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:12px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;"/>'
+    +'<button onclick="var n=document.getElementById(\'tpl-name\').value.trim();if(!n){showToast(\'\u274C Vul een naam in\');return;}saveTemplate(n,JSON.parse(JSON.stringify(S.meals)),JSON.parse(JSON.stringify(S.snacks)));document.getElementById(\'tpl-name\').value=\'\';" style="background:#1E3D20;color:#fff;border:none;border-radius:9px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u2713</button></div></div>';
+  var items=list.length?list.map(function(t){
+    var n=['morning','lunch','evening'].reduce(function(s,k){return s+(t.meals&&t.meals[k]?t.meals[k].length:0);},0);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #F5F0E6;">'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#1E3D20;">'+t.name+'</div><div style="font-size:10px;color:#9E9580;">'+n+' items</div></div>'
+      +'<button onclick="applyTemplate(\''+t.id+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u25B6</button>'
+      +'<button onclick="deleteTemplate(\''+t.id+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u00D7</button></div>';
+  }).join(''):'<div style="font-size:12px;color:#9E9580;padding:10px 0;text-align:center;">Nog geen sjablonen.</div>';
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">\u2B50</div><span class="card-title">Maaltijdsjablonen</span></div>'+saveBtn+items+'</div>';
+}
+
+// ── BARCODE SCANNER ──────────────────────────────────────────
+function scanBarcode(mealKey){
+  if(!('BarcodeDetector' in window)){showToast('\u274C Barcode scanner niet beschikbaar');return;}
+  var input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';
+  input.onchange=function(e){
+    var file=e.target.files[0];if(!file)return;
+    showToast('\uD83D\uDD0D Scannen...');
+    createImageBitmap(file).then(function(img){
+      return new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']}).detect(img);
+    }).then(function(barcodes){
+      if(!barcodes.length){showToast('\u274C Geen barcode gevonden');return;}
+      var code=barcodes[0].rawValue;
+      showToast('\uD83D\uDCE6 '+code+' opzoeken...');
+      return fetch('https://world.openfoodfacts.org/api/v0/product/'+code+'.json')
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(data.status!==1||!data.product){showToast('\u274C Product niet gevonden');return;}
+          var p=data.product,name=p.product_name_nl||p.product_name||'Onbekend';
+          var kcal=p.nutriments&&p.nutriments['energy-kcal_100g']?Math.round(p.nutriments['energy-kcal_100g']):'';
+          var inp=document.getElementById('meal-in-'+mealKey);
+          if(inp){inp.value=name+(kcal?' ('+kcal+' kcal/100g)':'');inp.focus();}
+          showToast('\u2713 '+name);
+        });
+    }).catch(function(err){showToast('\u274C '+err.message);});
+  };
+  input.click();
+}
+
+// ── FOTOARCHIEF ───────────────────────────────────────────────
+function getPhotoArchive(){return DB.get('photos:'+S.user.email)||[];}
+function savePhotoToArchive(dataUrl,analysisText,meal,dateStr){
+  var list=getPhotoArchive();
+  list.unshift({id:Date.now().toString(),photo:dataUrl,analysis:analysisText||'',meal:meal,date:dateStr||today(),ts:Date.now()});
+  if(list.length>30)list=list.slice(0,30);
+  DB.set('photos:'+S.user.email,list);
+}
+function deletePhoto(id){DB.set('photos:'+S.user.email,getPhotoArchive().filter(function(p){return p.id!==id;}));showToast('Foto verwijderd');render();}
+function photoArchiveBlock(){
+  var list=getPhotoArchive();
+  var ml=function(m){return m==='morning'?'\uD83C\uDF05':m==='lunch'?'\u2600\uFE0F':'\uD83C\uDF19';};
+  var rows=list.length?'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">'
+    +list.map(function(p){
+      var d=new Date(p.ts),ds=d.toLocaleDateString('nl-BE',{day:'numeric',month:'short'});
+      return '<div style="border-radius:10px;overflow:hidden;border:1px solid #EAE2D0;">'
+        +'<div style="position:relative;"><img src="'+p.photo+'" style="width:100%;height:100px;object-fit:cover;display:block;"/>'
+        +'<div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);color:#fff;font-size:9px;border-radius:6px;padding:2px 6px;">'+ds+'</div>'
+        +'<div style="position:absolute;bottom:4px;left:4px;background:rgba(30,61,32,.85);color:#F0EAD6;font-size:10px;border-radius:6px;padding:2px 6px;">'+ml(p.meal)+'</div></div>'
+        +'<div style="padding:6px 8px;">'
+        +(p.analysis?'<div style="font-size:9px;color:#5A7A5C;max-height:40px;overflow:hidden;">'+p.analysis.substring(0,100)+'</div>':'')
+        +'<button onclick="deletePhoto(\''+p.id+'\')" style="width:100%;margin-top:4px;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:3px;font-size:9px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u00D7 Verwijder</button>'
+        +'</div></div>';
+    }).join('')+'</div>'
+    :'<div style="text-align:center;padding:20px;color:#9E9580;font-size:12px;">\uD83D\uDCF7 Nog geen foto-analyses.</div>';
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">\uD83D\uDCF7</div><span class="card-title">Fotoarchief</span><span class="cbadge">'+list.length+'</span></div>'+rows+'</div>';
+}
+
+// ── VOORTGANGSFOTO\'S ─────────────────────────────────────────
+function getProgressPhotos(){return DB.get('progress_photos:'+S.user.email)||[];}
+function saveProgressPhoto(dataUrl,note){
+  var list=getProgressPhotos();
+  list.unshift({id:Date.now().toString(),photo:dataUrl,note:note||'',date:today(),ts:Date.now()});
+  if(list.length>52)list=list.slice(0,52);
+  DB.set('progress_photos:'+S.user.email,list);
+  showToast('\u2713 Voortgangsfoto opgeslagen');render();
+}
+function deleteProgressPhoto(id){DB.set('progress_photos:'+S.user.email,getProgressPhotos().filter(function(p){return p.id!==id;}));showToast('Verwijderd');render();}
+function progressPhotosBlock(){
+  var list=getProgressPhotos();
+  var uploadBtn='<div style="margin-bottom:14px;">'
+    +'<input id="prog-note" type="text" placeholder="Notitie (bv. week 3)" onclick="event.stopPropagation()" style="width:100%;box-sizing:border-box;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:12px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;margin-bottom:8px;"/>'
+    +'<label style="display:flex;align-items:center;justify-content:center;gap:8px;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'
+    +'\uD83D\uDCF7 Foto toevoegen'
+    +'<input type="file" accept="image/*" capture="environment" onchange="(function(inp){var file=inp.files[0];if(!file)return;var r=new FileReader();r.onload=function(e){var note=document.getElementById(\'prog-note\').value;saveProgressPhoto(e.target.result,note);document.getElementById(\'prog-note\').value=\'\';};r.readAsDataURL(file);})(this)" style="display:none;"/></label>'
+    +'</div>';
+  var grid=list.length?'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">'
+    +list.map(function(p){
+      var d=new Date(p.ts),ds=d.toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'});
+      return '<div style="border-radius:12px;overflow:hidden;border:1px solid #EAE2D0;">'
+        +'<div style="position:relative;"><img src="'+p.photo+'" style="width:100%;height:160px;object-fit:cover;display:block;"/>'
+        +'<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.65));padding:8px;">'
+        +'<div style="font-size:10px;color:#fff;font-weight:700;">'+ds+'</div>'
+        +(p.note?'<div style="font-size:9px;color:rgba(255,255,255,.85);">'+p.note+'</div>':'')
+        +'</div></div>'
+        +'<div style="padding:6px 8px;text-align:right;"><button onclick="deleteProgressPhoto(\''+p.id+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u00D7 Verwijder</button></div>'
+        +'</div>';
+    }).join('')+'</div>'
+    :'<div style="text-align:center;padding:20px;color:#9E9580;font-size:12px;">\uD83D\uDCF8 Voeg je eerste voortgangsfoto toe!</div>';
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">\uD83D\uDCF8</div><span class="card-title">Voortgangsfoto\'s</span><span class="cbadge">'+list.length+'</span></div>'+uploadBtn+grid+'</div>';
+}
+
+// ── STAPPENTELLER ─────────────────────────────────────────────
+var _stepCount=0,_stepListener=null,_lastAcc=0;
+function startStepCounting(){
+  if(_stepListener)return;
+  if(!window.DeviceMotionEvent){showToast('\u274C Stappenteller niet beschikbaar op dit toestel');return;}
+  function go(){
+    var threshold=12,lastStep=0;
+    _stepListener=function(e){
+      var acc=e.accelerationIncludingGravity;if(!acc)return;
+      var mag=Math.sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z),now=Date.now();
+      if(Math.abs(mag-_lastAcc)>threshold&&now-lastStep>300){
+        _stepCount++;lastStep=now;
+        var el=document.getElementById('step-count-display');
+        if(el)el.textContent=_stepCount+' stappen';
+        DB.set('steps:'+S.user.email+':'+today(),_stepCount);
+      }
+      _lastAcc=mag;
+    };
+    window.addEventListener('devicemotion',_stepListener);
+    showToast('\uD83D\uDC5F Stappenteller gestart');render();
+  }
+  if(typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(function(r){if(r==='granted')go();else showToast('\u274C Toestemming geweigerd');}).catch(go);
+  }else go();
+}
+function stopStepCounting(){if(_stepListener){window.removeEventListener('devicemotion',_stepListener);_stepListener=null;}render();}
+function getTodaySteps(){return DB.get('steps:'+S.user.email+':'+today())||0;}
+function stepsBlock(){
+  var steps=getTodaySteps()||_stepCount,goal=7500,pct=Math.min(100,Math.round(steps/goal*100)),active=!!_stepListener;
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">\uD83D\uDC5F</div><span class="card-title">Stappenteller vandaag</span></div>'
+    +'<div style="text-align:center;padding:8px 0 12px;">'
+    +'<div id="step-count-display" style="font-size:40px;font-weight:800;color:#2A6030;font-family:Playfair Display,serif;">'+steps+'</div>'
+    +'<div style="font-size:11px;color:#9E9580;margin-bottom:10px;">stappen \u2014 doel: '+goal.toLocaleString()+'</div>'
+    +'<div style="height:10px;background:#EAE2D0;border-radius:10px;margin:0 10px 12px;overflow:hidden;">'
+    +'<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#2A6030,#4A8E7B);border-radius:10px;"></div></div>'
+    +(active
+      ?'<button onclick="stopStepCounting()" style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u23F9 Stop</button>'
+      :'<button onclick="startStepCounting()" style="background:#2A6030;color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDC5F Start teller</button>')
+    +'</div>'
+    +'<div style="font-size:10px;color:#9E9580;text-align:center;font-style:italic;padding-bottom:8px;">Werkt op smartphones via bewegingssensor. Houd de app open.</div>'
+    +'</div>';
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -1491,6 +1730,11 @@ function render(){
     +navItem('chat','💬','Chat',tab==='chat',unreadChat||0)
     +navItem('news','📢','Nieuws',tab==='news',unreadNews||0)
     +navItem('summary','📋','Dag',tab==='summary',0)
+    +(isAnalyseEnabled()?navItem('photos','📷','Fotos',tab==='photos',0):'')
+    +navItem('badges','🏅','Badges',tab==='badges',0)
+    +navItem('progress','📸',"Foto's",tab==='progress',0)
+    +navItem('templates','⭐','Sjablonen',tab==='templates',0)
+    +navItem('steps','👟','Stappen',tab==='steps',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
