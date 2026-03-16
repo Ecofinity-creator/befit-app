@@ -466,6 +466,17 @@ function renderAdminClient(c,i){
   var hasFb=fb&&(fb.morning||fb.lunch||fb.evening);
   var open=S.adminOpen===i;
   var status=c.status||'approved';
+  // Pre-compute meal badges for summary row
+  var _mealBadges='';
+  if(status==='approved'){
+    ['morning','lunch','evening'].forEach(function(k){
+      var n=d&&d.meals&&d.meals[k]?d.meals[k].length:0;
+      var icon=k==='morning'?'\uD83C\uDF05':k==='lunch'?'\u2600\uFE0F':'\uD83C\uDF19';
+      _mealBadges+='<span style="font-size:15px;opacity:'+(n>0?'1':'0.25')+';">'+icon+'</span>';
+    });
+    if(d&&d.water)_mealBadges+='<span style="font-size:10px;color:#3A8FBD;font-weight:700;margin-left:4px;">\uD83D\uDCA7'+d.water+'</span>';
+    if(!_mealBadges)_mealBadges='<span style="color:#C0392B;font-size:10px;">Nog niet ingevuld</span>';
+  }
   var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
   var anlOn=isAnalyseEnabled(c.email);
   var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
@@ -483,6 +494,41 @@ function renderAdminClient(c,i){
   var _diary=DB.get('diary:'+c.email+':'+_aDate)||{meals:{morning:[],lunch:[],evening:[]},water:0};
   var _dHasData=Object.values(_diary.meals||{}).some(function(m){return m.length>0;})||(_diary.water||0)>0;
   var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
+  // Meals of today
+  var dm2=d&&d.meals?d.meals:{morning:[],lunch:[],evening:[]};
+  var mealLabels={morning:'🌅 Ontbijt',lunch:'☀️ Middagmaal',evening:'🌙 Avondmaal'};
+  var mealColors2={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
+  var mealRows=['morning','lunch','evening'].map(function(k){
+    var items=dm2[k]||[];
+    if(!items.length)return '';
+    return '<div style="margin-bottom:8px;">'
+      +'<div style="font-size:10px;font-weight:700;color:'+mealColors2[k]+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+mealLabels[k]+'</div>'
+      +items.map(function(it){return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #F5F0E6;">'
+        +'<span style="font-size:11px;color:#1E3D20;flex:1;">'+it.t+'</span>'
+        +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
+        +'</div>';}).join('')
+      +'</div>';
+  }).join('');
+  var snackRows=['morning','lunch','evening'].map(function(k){
+    var items=(d&&d.snacks&&d.snacks[k])||[];
+    if(!items.length)return '';
+    return items.map(function(it){return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #F5F0E6;">'
+      +'<span style="font-size:10px;">🍎</span>'
+      +'<span style="font-size:11px;color:#856404;flex:1;">'+it.t+'</span>'
+      +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
+      +'</div>';}).join('');
+  }).join('');
+  var actRows=(d&&d.activities||[]).map(function(a){
+    return '<div style="font-size:11px;color:#4A8E7B;padding:2px 0;">🏃 '+a.type+' — '+a.dur+' min</div>';
+  }).join('');
+  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' glazen water</div>':'';
+  var mealSec=(mealRows||snackRows||actRows||waterRow)
+    ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+    +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">📋 Vandaag gegeten</div>'
+    +mealRows+snackRows
+    +(actRows||waterRow?'<div style="margin-top:6px;">'+waterRow+actRows+'</div>':'')
+    +'</div>'
+    :'';
   // Goals editor
   var cg=getGoals(c.email);
   var goalSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
@@ -522,13 +568,13 @@ function renderAdminClient(c,i){
       +'</div>'
       :'')
     +'<div style="display:flex;align-items:center;gap:6px;">'
-    +'<div style="font-size:10px;font-weight:700;flex:1">'+(status==='approved'?(hasData?'<span style="color:#2A6030">\u2713 Ingevuld</span>':'<span style="color:#C0392B">Nog niet ingevuld</span>'):'')+'</div>'
+    +'<div style="font-size:10px;font-weight:700;flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'+_mealBadges+'</div>'
     +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700;">\u270D\uFE0F Feedback</div>':'')+badge
     +'</div>'
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
     +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
-    +(status==='approved'?aBtns+goalSec+anlSec+fatSec+chatSec:'')
+    +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+chatSec:'')
     +'</div></div>';
 }
 
@@ -1203,18 +1249,18 @@ function render(){
     +'</div>'
     +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:5px 12px;gap:6px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:11px;margin:0;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;border:none;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;')+'border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
     +'<div class="nav">'
-    +navItem('morning','\uD83C\uDF05','Ontbijt',tab==='morning',0)
-    +navItem('lunch','\u2600\uFE0F','Middag',tab==='lunch',0)
-    +navItem('evening','\uD83C\uDF19','Avond',tab==='evening',0)
-    +navItem('water','\uD83D\uDCA7','Water',tab==='water',0)
-    +navItem('gevoel','\u2728','Gevoel',tab==='gevoel',0)
-    +navItem('analyse','\uD83E\uDD66','Analyse',tab==='analyse',0)
-    +navItem('weight','\u2696\uFE0F','Gewicht',tab==='weight',0)
-    +navItem('appt','\uD83D\uDCC5','Agenda',tab==='appt',0)
-    +navItem('profile','\u2699\uFE0F','Profiel',tab==='profile',0)
-    +navItem('chat','\uD83D\uDCAC','Chat',tab==='chat',unreadChat||0)
-    +navItem('news','\uD83D\uDCE3','Nieuws',tab==='news',unreadNews||0)
-    +navItem('summary','\uD83D\uDCCB','Dag',tab==='summary',0)
+    +navItem('morning','🌅','Ontbijt',tab==='morning',0)
+    +navItem('lunch','☀️','Middag',tab==='lunch',0)
+    +navItem('evening','🌙','Avond',tab==='evening',0)
+    +navItem('water','💧','Water',tab==='water',0)
+    +navItem('gevoel','🌟','Gevoel',tab==='gevoel',0)
+    +navItem('analyse','🔬','Analyse',tab==='analyse',0)
+    +navItem('weight','⚖️','Gewicht',tab==='weight',0)
+    +navItem('appt','📅','Agenda',tab==='appt',0)
+    +navItem('profile','👤','Profiel',tab==='profile',0)
+    +navItem('chat','💬','Chat',tab==='chat',unreadChat||0)
+    +navItem('news','📢','Nieuws',tab==='news',unreadNews||0)
+    +navItem('summary','📋','Dag',tab==='summary',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
