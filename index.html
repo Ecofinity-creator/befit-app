@@ -146,8 +146,16 @@ firebase.initializeApp(firebaseConfig);
 var fsdb=firebase.firestore();
 // Test Firebase connection on load
 fsdb.collection("data").limit(1).get()
-  .then(function(){console.log("✅ Firestore verbonden");document.title="✅ Be Fit";setTimeout(function(){document.title="Be Fit";},2000);})
-  .catch(function(e){console.error("❌ Firestore fout:",e.message);document.title="❌ Firestore fout";});
+  .then(function(){console.log("\u2705 Firestore verbonden");})
+  .catch(function(e){
+    console.warn("Firestore eerste poging mislukt, herprobeert...",e.code);
+    // Retry after 2s (Firebase Auth might not be ready)
+    setTimeout(function(){
+      fsdb.collection("data").limit(1).get()
+        .then(function(){console.log("\u2705 Firestore verbonden (retry)");})
+        .catch(function(e2){console.error("\u274C Firestore fout:",e2.message,"\u2192 Controleer beveiligingsregels in Firebase console");});
+    },2000);
+  });
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
 const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).then(function(){}).catch(function(e){console.warn("Firestore write failed for",k,":",e.message);});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
