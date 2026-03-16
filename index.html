@@ -12,7 +12,6 @@
 <meta name="apple-mobile-web-app-title" content="Be Fit"/>
 <link rel="apple-touch-icon" href="icon-192.png"/>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -145,28 +144,10 @@ const CFG={morning:{label:'Ontbijt',icon:'\uD83C\uDF05',ph:'bv. havermout, yoghu
 var firebaseConfig={apiKey:"AIzaSyBz_bDfzWoENfBubDPB3IEufuQC_Y0Bv4c",authDomain:"befit-marke-c9f94.firebaseapp.com",projectId:"befit-marke-c9f94",storageBucket:"befit-marke-c9f94.firebasestorage.app",messagingSenderId:"909935308502",appId:"1:909935308502:web:a5925dc51238ea6d5c2377"};
 firebase.initializeApp(firebaseConfig);
 var fsdb=firebase.firestore();
-var fsauth=firebase.auth();
-var SESSION_TIMEOUT=24*60*60*1000;
-function updateActivity(){if(S.user&&!S.user.isAdmin)localStorage.setItem('befit:lastActivity',Date.now().toString());}
-function checkSessionTimeout(){
-  if(!S.user||S.user.isAdmin)return false;
-  var last=parseInt(localStorage.getItem('befit:lastActivity')||'0');
-  if(last&&Date.now()-last>SESSION_TIMEOUT){
-    fsauth.signOut().catch(function(){});
-    clearInterval(S._reminderInterval);S.user=null;S.screen='login';
-    localStorage.removeItem('befit:lastActivity');render();return true;
-  }return false;
-}
-document.addEventListener('click',updateActivity);
-document.addEventListener('keydown',updateActivity);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)checkSessionTimeout();});
 // Test Firebase connection on load
-// Firestore verbindingstest (stil - geen UI feedback)
-setTimeout(function(){
-  fsdb.collection("data").limit(1).get()
-    .then(function(){console.log("\u2705 Firestore verbonden");})
-    .catch(function(e){console.warn("\u26A0\uFE0F Firestore:",e.code,"(normaal als regels auth vereisen voor inloggen)");});
-},1000);
+fsdb.collection("data").limit(1).get()
+  .then(function(){console.log("✅ Firestore verbonden");document.title="✅ Be Fit";setTimeout(function(){document.title="Be Fit";},2000);})
+  .catch(function(e){console.error("❌ Firestore fout:",e.message);document.title="❌ Firestore fout";});
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
 const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).then(function(){}).catch(function(e){console.warn("Firestore write failed for",k,":",e.message);});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
@@ -221,10 +202,18 @@ async function loadAdminClientsFromFirestore(){
     // Also load today's diary for each client
     var emails=snap.docs.map(function(doc){return fromFsKey(doc.id).replace('user:','');});
     var diaryPromises=emails.map(function(email){
-      var diaryKey='diary:'+email+':'+today();
-      return fsdb.collection('data').doc(fsKey(diaryKey)).get()
-        .then(function(d){if(d.exists&&d.data().v)localStorage.setItem(diaryKey,d.data().v);})
-        .catch(function(){});
+      var keys=['diary:'+email+':'+today()];
+      // Also sync analyse keys for today
+      ['morning','lunch','evening'].forEach(function(k){
+        keys.push('analyse:'+email+':'+today()+':'+k);
+        keys.push('analyse_day:'+email+':'+today());
+      });
+      keys.push('wellbeing:'+email+':'+today());
+      return Promise.all(keys.map(function(key){
+        return fsdb.collection('data').doc(fsKey(key)).get()
+          .then(function(d){if(d.exists&&d.data()&&d.data().v)localStorage.setItem(key,d.data().v);})
+          .catch(function(){});
+      }));
     });
     await Promise.all(diaryPromises);
     loadAdminClients();
@@ -240,7 +229,7 @@ function startDiarySync(email){if(_diaryListener)_diaryListener();var key="diary
       S.meals=remote.meals||{morning:[],lunch:[],evening:[]};      S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};      S.water=remote.water||0;S.activities=remote.activities||[];render();    }}},function(){});}
 
 
-var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',adminAnalyseOpen:null,_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
+var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -259,63 +248,53 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   var _pk=_isSysAdmin||((_sp)&&(pass===_sp||btoa(pass)===_sp));
   if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
-  fsauth.signInWithEmailAndPassword(email,pass).then(async function(){
-    err.classList.remove('show');
-    try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();
-      if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);}catch(_e){}
-    var ud=DB.get('user:'+email);
-    if(!ud){err.textContent='Profiel niet gevonden. Contacteer je diëtiste.';err.classList.add('show');fsauth.signOut();return;}
-    if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');fsauth.signOut();return;}
-    if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');fsauth.signOut();return;}
-    S.user={email:email,name:ud.name,isAdmin:false};
-    S.meals={morning:[],lunch:[],evening:[]};S.snacks={morning:[],lunch:[],evening:[]};
-    S.water=0;S.reminders=[];loadUserData();S.screen='app';
-    localStorage.setItem('befit:lastActivity',Date.now().toString());
-    startReminderCheck();render();requestNotifPermission();
-    syncFromFirestore(email).then(function(){loadUserData();render();});
-    startDiarySync(email);
-  }).catch(function(e){
-    err.classList.remove('show');
-    var msg=e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'?'E-mailadres of wachtwoord onjuist.'
-      :e.code==='auth/too-many-requests'?'Te veel pogingen. Probeer later opnieuw.'
-      :'Inloggen mislukt: '+e.message;
-    err.textContent=msg;err.classList.add('show');
-  });}
-async function doRegister(){
-  var name=document.getElementById('reg-name').value.trim();
-  var email=document.getElementById('reg-email').value.trim().toLowerCase();
-  var pass=document.getElementById('reg-pass').value;
-  var err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');
-  err.classList.remove('show');ok.classList.remove('show');
-  if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}
-  if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}
-  if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}
-  err.textContent='Even geduld…';err.classList.add('show');
+  var ud=DB.get('user:'+email);err.classList.remove('show');
+  if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
+  if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
+  if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
+  if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
+  S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
+  S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
+  syncFromFirestore(email).then(function(){loadUserData();render();});
+  startDiarySync(email);}
+function doRegister(){var name=document.getElementById('reg-name').value.trim(),email=document.getElementById('reg-email').value.trim().toLowerCase(),pass=document.getElementById('reg-pass').value,err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');err.classList.remove('show');ok.classList.remove('show');if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(DB.get('user:'+email)){err.textContent='Al geregistreerd.';err.classList.add('show');return;}DB.set('user:'+email,{email:email,name:name,pass:btoa(pass),created:Date.now(),status:'pending'});
+  // Notify admin via Firestore listener - also send push to all admins
+  var adminEmails=['delphine@be-fit.be'].concat((DB.get('extra:admins')||[]).map(function(a){return a.email;}));
+  adminEmails.forEach(function(ae){
+    var sub=DB.get('push:sub:'+ae);
+    if(sub&&typeof sendPushToClient==='function')
+      sendPushToClient(sub,'\uD83D\uDC64 Nieuwe aanmelding',name+' wacht op goedkeuring.','new-user');
+  });
+  ok.textContent='Account aangemaakt! Je di\u00ebtiste zal je account goedkeuren.';
+  ok.classList.add('show');setTimeout(function(){S.screen='login';render();},2500);}
+async function doForgot(){
+  var email=document.getElementById('fg-email').value.trim().toLowerCase();
+  var err=document.getElementById('fg-err');
+  err.classList.remove('show');
+  if(!email){err.textContent='Vul je e-mailadres in.';err.classList.add('show');return;}
+  var isAdmin=!!findAdmin(email);
+  if(isAdmin){
+    // Admin: use local password change
+    S._forgotEmail=email;S._forgotIsAdmin=true;S.screen='changepass';render();return;
+  }
+  // Client: send Firebase password reset email
+  err.textContent='Even geduld\u2026';err.classList.add('show');
   try{
-    await fsauth.createUserWithEmailAndPassword(email,pass);
-    await fsauth.signOut();
-    var adminEmails=['delphine@be-fit.be'].concat((DB.get('extra:admins')||[]).map(function(a){return a.email;}));
-    DB.set('user:'+email,{email:email,name:name,created:Date.now(),status:'pending'});
-    adminEmails.forEach(function(ae){
-      var sub=DB.get('push:sub:'+ae);
-      if(sub&&typeof sendPushToClient==='function')
-        sendPushToClient(sub,'Nieuwe aanmelding',name+' wacht op goedkeuring.','new-user');
-    });
+    await fsauth.sendPasswordResetEmail(email);
     err.classList.remove('show');
-    ok.textContent='Account aangemaakt! Je diëtiste zal je account goedkeuren.';
-    ok.classList.add('show');
-    setTimeout(function(){S.screen='login';render();},2500);
+    var ok=document.getElementById('fg-ok');
+    if(ok){ok.textContent='\u2713 Resetlink verstuurd naar '+email+'. Controleer je inbox (en spam).';ok.classList.add('show');}
+    else{alert('Resetlink verstuurd naar '+email);}
+    setTimeout(function(){S.screen='login';render();},3500);
   }catch(e){
     err.classList.remove('show');
-    var msg=e.code==='auth/email-already-in-use'?'Dit e-mailadres is al geregistreerd.'
-      :e.code==='auth/weak-password'?'Wachtwoord te zwak (min. 6 tekens).'
-      :'Registratie mislukt: '+e.message;
+    var msg=e.code==='auth/user-not-found'?'E-mailadres niet gevonden.'
+      :'Kon geen resetlink sturen: '+e.message;
     err.textContent=msg;err.classList.add('show');
   }
 }
-function doForgot(){var email=document.getElementById('fg-email').value.trim().toLowerCase(),err=document.getElementById('fg-err');err.classList.remove('show');if(!email){err.textContent='Vul je e-mailadres in.';err.classList.add('show');return;}var isAdmin=!!findAdmin(email),isClient=!!DB.get('user:'+email);if(!isAdmin&&!isClient){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}S._forgotEmail=email;S._forgotIsAdmin=isAdmin;S.screen='changepass';render();}
 function doChangePass(){var p1=document.getElementById('cp-pass1').value,p2=document.getElementById('cp-pass2').value,err=document.getElementById('cp-err'),ok=document.getElementById('cp-ok');err.classList.remove('show');ok.classList.remove('show');if(!p1||!p2){err.textContent='Vul beide velden in.';err.classList.add('show');return;}if(p1.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.classList.add('show');return;}if(S._forgotIsAdmin){DB.set('adminpass:'+S._forgotEmail,p1);}else{var ud=DB.get('user:'+S._forgotEmail);ud.pass=btoa(p1);DB.set('user:'+S._forgotEmail,ud);}ok.textContent='Wachtwoord gewijzigd! Je kan nu inloggen.';ok.classList.add('show');setTimeout(function(){S.screen='login';S._forgotEmail=null;S._forgotIsAdmin=false;render();},1800);}
-function logout(){clearInterval(S._reminderInterval);if(typeof stopAdminSync==='function')stopAdminSync();if(typeof fsauth!=='undefined')fsauth.signOut().catch(function(){});localStorage.removeItem('befit:lastActivity');S.user=null;S.screen='login';render();}
+function logout(){clearInterval(S._reminderInterval);if(typeof stopAdminSync==='function')stopAdminSync();S.user=null;S.screen='login';render();}
 
 function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k]&&getMealDate()===today())startTimer(k);render();}
 function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
@@ -450,7 +429,7 @@ function renderAdminBroadcasts(){
 }
 
 function renderAdminTabContent(ch){
-  if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
+  if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:10px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div><input type=\'text\' placeholder=\'Zoek klant...\' value=\''+( S.adminSearch||'')+'\'  oninput=\'S.adminSearch=this.value;render()\' onclick=\'event.stopPropagation()\' style=\'width:100%;box-sizing:border-box;border:1px solid #DDD4C0;border-radius:9px;padding:8px 12px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;margin-bottom:12px;\'/>'
       +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week'].includes(S.adminTab)){
@@ -469,17 +448,12 @@ function renderAdminTabContent(ch){
       +'<div id="chpw-err" style="color:#C0392B;font-size:11px;margin-bottom:8px;display:none;"></div>'
       +'<button onclick="changeAdminPassword()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F511; Wachtwoord opslaan</button>'
       +'</div>'
-      +(S.user.email===SYSTEM_ADMIN
-      ?'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
+      +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
       +'<div style="font-size:12px;color:#9E9580;margin-bottom:10px;">Nodig voor AI voedingsanalyse. Aanmaken via console.anthropic.com</div>'
       +'<input id="api-key-input" type="password" placeholder="sk-ant-..." value="'+apiKey+'" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;"/>'
       +'<button onclick="saveApiKey()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button>'
       +(apiKey?'<div style="font-size:11px;color:#2A6030;margin-top:8px;text-align:center;">&#x2713; API-sleutel ingesteld</div>':'')
       +'</div>'
-      :'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
-      +(apiKey?'<div style="font-size:12px;color:#2A6030;">&#x2713; API-sleutel is ingesteld door de beheerder.</div>'
-      :'<div style="font-size:12px;color:#9E9580;">De API-sleutel wordt beheerd door de systeembeheerder.</div>')
-      +'</div>')
       +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F469;&#x200D;&#x2695;&#xFE0F;</div><span class="card-title">Di\u00ebtistes beheren</span></div>'
       +eList
       +'<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EAE2D0;"><div style="font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:10px;">Nieuwe di\u00ebtiste</div>'
@@ -566,6 +540,13 @@ function renderAdminTabContent(ch){
 }
 function renderAdminClient(c,i){
   var d=c.diary,fb=loadFeedback(c.email,today());
+  var _inact7=false,_inact14=false;
+  if((c.status||'approved')==='approved'){
+    var _fd=false;
+    for(var _di=0;_di<7&&!_fd;_di++){var _dobj=new Date();_dobj.setDate(_dobj.getDate()-_di);var _ds=_dobj.getFullYear()+'-'+String(_dobj.getMonth()+1).padStart(2,'0')+'-'+String(_dobj.getDate()).padStart(2,'0');var _db=DB.get('diary:'+c.email+':'+_ds);if(_db&&Object.values(_db.meals||{}).some(function(m){return m.length>0;})){_fd=true;}}
+    _inact7=!_fd;
+    if(_inact7){var _fd2=false;for(var _di2=7;_di2<30&&!_fd2;_di2++){var _dobj2=new Date();_dobj2.setDate(_dobj2.getDate()-_di2);var _ds2=_dobj2.getFullYear()+'-'+String(_dobj2.getMonth()+1).padStart(2,'0')+'-'+String(_dobj2.getDate()).padStart(2,'0');var _db2=DB.get('diary:'+c.email+':'+_ds2);if(_db2&&Object.values(_db2.meals||{}).some(function(m){return m.length>0;})){_fd2=true;}}  _inact14=!_fd2;}
+  }
   var hasFb=fb&&(fb.morning||fb.lunch||fb.evening);
   var open=S.adminOpen===i;
   var status=c.status||'approved';
@@ -583,7 +564,7 @@ function renderAdminClient(c,i){
   var wtOn=isWeightEnabled(c.email);
     var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
   var anlOn=isAnalyseEnabled(c.email);
-  var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
+  var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':_inact14?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 8px;font-weight:700;">+14d inactief</span>':_inact7?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 8px;font-weight:700;">&#x26A0;&#xFE0F; Inactief (7d)</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
   var hasData=_aDate===today()?(d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0)):_dHasData;
   var det='';
   // Analyse results
@@ -593,7 +574,7 @@ function renderAdminClient(c,i){
   if(_anlDay){['morning','lunch','evening'].forEach(function(k){if(_anlDay[k])anlResults[k]=_anlDay[k];});}
   else{['morning','lunch','evening'].forEach(function(k){var r=DB.get(getMealAnalyseKey(c.email,_aDate,k));if(r)anlResults[k]=r;});}
   var anlKeys=Object.keys(anlResults);
-  var anlSec=anlKeys.length?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'+anlKeys.map(function(k){var r=anlResults[k];var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';var showFull=(S.adminAnalyseOpen===c.email+':'+k);return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;">'+'<div style="display:flex;align-items:center;margin-bottom:4px;">'+'<span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span>'+'<span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span>'+'<button onclick="event.stopPropagation();S.adminAnalyseOpen=S.adminAnalyseOpen===\''+c.email+':'+k+'\''+'?null:\''+c.email+':'+k+'\';render();" '+'style="margin-left:8px;background:'+(showFull?'#1E3D20':'#F0F7F2')+';color:'+(showFull?'#F0EAD6':'#2A6030')+';border:1px solid #A8D4B8;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">'+(showFull?'\u25B2 Sluiten':'\uD83D\uDD0D Volledig')+'</button>'+'</div>'+'<div style="display:flex;gap:5px;flex-wrap:wrap;">'+(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')+(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')+(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')+(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')+'</div>'+(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:3px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')+(showFull?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid #D8EED8;">'+renderAnalyseResult(r)+'</div>':'')+'</div>';}).join('')+'</div>':'';
+  var anlSec=anlKeys.length?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F9EA; Voedingsanalyse vandaag</div>'+anlKeys.map(function(k){var r=anlResults[k];var mL=k==='morning'?'Ontbijt':k==='lunch'?'Middagmaal':'Avondmaal';var sc=r.score>=8?'#2A6030':r.score>=5?'#C9A84C':'#C0392B';return '<div style="background:#F8FFF8;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #D8EED8;"><div style="display:flex;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:#1E3D20;flex:1;">'+mL+'</span><span style="font-size:12px;font-weight:800;color:'+sc+';">'+r.score+'/10</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;">'+(r.kcal?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border-radius:10px;padding:2px 7px;">'+r.kcal+' kcal</span>':'')+(r.proteinen?'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border-radius:10px;padding:2px 7px;">'+r.proteinen+'g eiwit</span>':'')+(r.koolhydraten?'<span style="font-size:10px;background:#EEF4FF;color:#3A8FBD;border-radius:10px;padding:2px 7px;">'+r.koolhydraten+'g koolh.</span>':'')+(r.vetten?'<span style="font-size:10px;background:#FFEEEE;color:#C0392B;border-radius:10px;padding:2px 7px;">'+r.vetten+'g vet</span>':'')+'</div>'+(r.tips&&r.tips.length?'<div style="font-size:10px;color:#856404;margin-top:3px;font-style:italic;">\uD83D\uDCA1 '+r.tips[0]+'</div>':'')+'</div>';}).join('')+'</div>':'';
   var wlist=getWeights(c.email),lastFat=wlist.filter(function(w){return w.fat!=null;}).slice(-1)[0];
   var _diary=DB.get('diary:'+c.email+':'+_aDate)||{meals:{morning:[],lunch:[],evening:[]},water:0};
   var _dHasData=Object.values(_diary.meals||{}).some(function(m){return m.length>0;})||(_diary.water||0)>0;
@@ -607,16 +588,9 @@ function renderAdminClient(c,i){
     if(!items.length)return '';
     return '<div style="margin-bottom:8px;">'
       +'<div style="font-size:10px;font-weight:700;color:'+mealColors2[k]+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+mealLabels[k]+'</div>'
-      +items.map(function(it,ii){var fbKey='itemfb:'+c.email+':'+today()+':'+k+':'+ii;var fbVal=DB.get(fbKey)||'';return '<div style="padding:4px 0;border-bottom:1px solid #F5F0E6;">'
-        +'<div style="display:flex;align-items:center;gap:6px;">'
+      +items.map(function(it){return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #F5F0E6;">'
         +'<span style="font-size:11px;color:#1E3D20;flex:1;">'+it.t+'</span>'
         +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
-        +'</div>'
-        +'<div style="display:flex;gap:4px;margin-top:3px;">'
-        +'<input type="text" value="'+fbVal+'" onclick="event.stopPropagation()" placeholder="Feedback op dit item..." '
-        +'onchange="DB.set(\'itemfb:'+c.email+':'+today()+':'+k+':'+ii+'\',this.value);showToast(\'\u2713 Opgeslagen\');" '
-        +'style="flex:1;border:1px solid #EAE2D0;border-radius:6px;padding:4px 8px;font-size:10px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/>'
-        +'</div>'
         +'</div>';}).join('')
       +'</div>';
   }).join('');
@@ -632,7 +606,7 @@ function renderAdminClient(c,i){
   var actRows=(d&&d.activities||[]).map(function(a){
     return '<div style="font-size:11px;color:#4A8E7B;padding:2px 0;">🏃 '+a.type+' — '+a.dur+' min</div>';
   }).join('');
-  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' gl / '+Math.round(d.water*0.15*10)/10+' L water</div>':'';
+  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' glazen water</div>':'';
   var mealSec=(mealRows||snackRows||actRows||waterRow)
     ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
     +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">📋 Vandaag gegeten</div>'
@@ -1444,7 +1418,9 @@ function render(){
 
   if(S.screen==='admin'){
     loadAdminClients();
-    var ch=S.adminClients.length===0
+    var _search=(S.adminSearch||'').toLowerCase().trim();
+  var _filtered=_search?S.adminClients.filter(function(cl){return (cl.name||'').toLowerCase().includes(_search)||(cl.email||'').toLowerCase().includes(_search);}):S.adminClients;
+  var ch=_filtered.length===0&&S.adminClients.length===0
       ?'<div style="text-align:center;padding:40px 16px;">'
         +'<div style="font-size:36px;margin-bottom:12px;">&#x1F465;</div>'
         +'<div style="font-size:16px;font-weight:700;color:#1E3D20;margin-bottom:8px;">Nog geen klanten</div>'
@@ -1453,7 +1429,9 @@ function render(){
         +'<button onclick="showInviteModal()" style="background:#1E3D20;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:8px;width:100%;">&#x2709;&#xFE0F; Klant uitnodigen</button>'
         +'<button onclick="loadAdminClientsFromFirestore()" style="background:transparent;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">&#x1F504; Opnieuw laden</button>'
         +'</div>'
-      :S.adminClients.map(function(c,i){return renderAdminClient(c,i);}).join('');
+      :(_search&&_filtered.length===0
+        ?'<div style="text-align:center;padding:30px;color:#9E9580;font-size:13px;font-style:italic;">Geen klanten gevonden voor \"'+_search+'\"</div>'
+        :_filtered.map(function(c,i){return renderAdminClient(c,i);}).join(''));
     var tabStyle='flex:1;text-align:center;padding:12px 6px;font-size:12px;font-weight:700;font-family:Lato,sans-serif;cursor:pointer;';
     var t1=S.adminTab==='clients';
     app.innerHTML='<div class="admin-bar" style="flex-direction:column;align-items:center;padding:14px 18px 10px;">'
@@ -1506,18 +1484,13 @@ function render(){
     +navItem('evening','🌙','Avond',tab==='evening',0)
     +navItem('water','💧','Water',tab==='water',0)
     +navItem('gevoel','🌟','Gevoel',tab==='gevoel',0)
-    +navItem('summary','📋','Dag',tab==='summary',0)
+    +navItem('analyse','🔬','Analyse',tab==='analyse',0)
+    +navItem('weight','⚖️','Gewicht',tab==='weight',0)
     +navItem('appt','📅','Agenda',tab==='appt',0)
     +navItem('profile','👤','Profiel',tab==='profile',0)
+    +navItem('chat','💬','Chat',tab==='chat',unreadChat||0)
     +navItem('news','📢','Nieuws',tab==='news',unreadNews||0)
-    +(isAnalyseEnabled()?navItem('analyse','🔬','Analyse',tab==='analyse',0):'')
-    +(isWeightEnabled()?navItem('weight','⚖️','Gewicht',tab==='weight',0):'')
-    +((DB.get('user:'+S.user.email)||{}).chatEnabled!==false?navItem('chat','💬','Chat',tab==='chat',unreadChat||0):'')
-    +navItem('badges','🏅','Badges',tab==='badges',0)
-    +navItem('progress','📸',"Foto's",tab==='progress',0)
-    +navItem('templates','⭐','Sjablonen',tab==='templates',0)
-    +navItem('steps','👟','Stappen',tab==='steps',0)
-    +navItem('photos','📷','Fotos',tab==='photos',0)
+    +navItem('summary','📋','Dag',tab==='summary',0)
     +'</div>'
     +'<div class="content">'+tabContent+'</div>';
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
