@@ -145,9 +145,12 @@ var firebaseConfig={apiKey:"AIzaSyBz_bDfzWoENfBubDPB3IEufuQC_Y0Bv4c",authDomain:
 firebase.initializeApp(firebaseConfig);
 var fsdb=firebase.firestore();
 // Test Firebase connection on load
-fsdb.collection("data").limit(1).get()
-  .then(function(){console.log("✅ Firestore verbonden");document.title="✅ Be Fit";setTimeout(function(){document.title="Be Fit";},2000);})
-  .catch(function(e){console.error("❌ Firestore fout:",e.message);document.title="❌ Firestore fout";});
+// Silent Firestore check
+setTimeout(function(){
+  fsdb.collection("data").limit(1).get()
+    .then(function(){console.log("\u2705 Firestore verbonden");})
+    .catch(function(e){console.warn("\u26A0\uFE0F Firestore:",e.code);});
+},1500);
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
 const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).then(function(){}).catch(function(e){console.warn("Firestore write failed for",k,":",e.message);});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
@@ -328,6 +331,15 @@ function addReminder(){var desc=document.getElementById('rem-desc'),time=documen
 function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
 
 function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
+// Update time inputs every minute
+setInterval(function(){
+  document.querySelectorAll('.add-time').forEach(function(el){
+    // Only update if user hasn't changed it
+    var d=new Date(),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+    var prev=el.dataset.touched;
+    if(!prev)el.value=hh+':'+mm;
+  });
+},60000);
 function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();showNotif('\uD83C\uDF4E Hallo '+_un+'! Tijd voor een tussendoortje na je '+_ml+'.');if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,'Be Fit Marke \uD83C\uDF4E','Hallo '+_un+'! Tijd voor een tussendoortje na je '+_ml+'.','snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 
 function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
