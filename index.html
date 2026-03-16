@@ -46,9 +46,13 @@ body{font-family:'Lato',sans-serif;background:linear-gradient(160deg,#1E3D20 0%,
 .toast.show{opacity:1;}
 .nav{display:flex;background:#fff;border-top:1px solid #E8E0D0;position:sticky;bottom:0;z-index:100;overflow-x:auto;}
 .nav-bar::-webkit-scrollbar{display:none;}
-.nav-item{flex:0 0 auto;min-width:46px;display:flex;flex-direction:column;align-items:center;padding:5px 4px 4px;font-size:7px;font-weight:700;color:#9E9580;cursor:pointer;text-transform:uppercase;letter-spacing:0;position:relative;white-space:nowrap;}
-.nav-item.on{color:#1E3D20;border-top:2px solid #4A8E7B;}
-.nav-icon{font-size:19px;display:block;margin-bottom:1px;line-height:1;}
+.nav-item{flex:0 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;padding:8px 6px 6px;font-size:0;color:#9E9580;cursor:pointer;position:relative;white-space:nowrap;transition:color .15s;}
+.nav-item .nav-label{font-size:8px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-top:2px;opacity:0;transition:opacity .15s;}
+.nav-item.on .nav-label{opacity:1;}
+.nav-item.on{color:#1E3D20;}
+.nav-item.on .nav-pill{background:#EAF4EE;border-radius:12px;padding:3px 8px;}
+.nav-pill{display:flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:12px;transition:background .15s;}
+.nav-icon{font-size:20px;display:block;line-height:1;}
 .content{padding:14px;padding-bottom:80px;}
 .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
 .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
@@ -1247,8 +1251,9 @@ function render(){
   var unreadNews=unreadBroadcastCount(S.user.email);
   function navItem(id,icon,label,active,badge){
     return '<div class="nav-item '+(active?'on':'')+'" onclick="S.tab=\''+id+'\';render()" style="position:relative">'
-      +'<span class="nav-icon">'+icon+'</span>'+label
-      +(badge?'<span style="position:absolute;top:4px;right:4px;background:#C0392B;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;">'+badge+'</span>':'')
+      +'<div class="nav-pill"><span class="nav-icon">'+icon+'</span></div>'
+      +'<span class="nav-label">'+label+'</span>'
+      +(badge?'<span style="position:absolute;top:2px;right:6px;background:#C0392B;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;">'+badge+'</span>':'')
       +'</div>';
   }
   app.innerHTML='<div class="app-header" style="display:flex;align-items:center;gap:10px;">'
