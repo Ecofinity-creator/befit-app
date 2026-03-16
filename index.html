@@ -224,9 +224,31 @@ async function loadAdminClientsFromFirestore(){
 }
 
 var _diaryListener=null;
-function startDiarySync(email){if(_diaryListener)_diaryListener();var key="diary:"+email+":"+today();_diaryListener=fsdb.collection("data").doc(fsKey(key)).onSnapshot(function(snap){if(!snap.exists||!S.user||S.user.email!==email)return;var remote=JSON.parse(snap.data().v);var local=DB.get(key)||{};if(!local.ts||remote.ts>local.ts){localStorage.setItem(key,JSON.stringify(remote));// Only update state if user is currently viewing today
-    if(!S.mealDate||S.mealDate===today()){
-      S.meals=remote.meals||{morning:[],lunch:[],evening:[]};      S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};      S.water=remote.water||0;S.activities=remote.activities||[];render();    }}},function(){});}
+function startDiarySync(email){
+  if(_diaryListener)_diaryListener();
+  var syncDate=today(); // capture date at start time
+  var key="diary:"+email+":"+syncDate;
+  _diaryListener=fsdb.collection("data").doc(fsKey(key)).onSnapshot(function(snap){
+    // If date has changed since listener was created, restart with new date
+    if(today()!==syncDate){
+      console.log("Date changed, restarting diary sync");
+      startDiarySync(email);
+      return;
+    }
+    if(!snap.exists||!S.user||S.user.email!==email)return;
+    var remote=JSON.parse(snap.data().v);
+    var local=DB.get(key)||{};
+    if(!local.ts||remote.ts>local.ts){
+      localStorage.setItem(key,JSON.stringify(remote));
+      if(!S.mealDate||S.mealDate===today()){
+        S.meals=remote.meals||{morning:[],lunch:[],evening:[]};
+        S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};
+        S.water=remote.water||0;S.activities=remote.activities||[];
+        render();
+      }
+    }
+  },function(){});
+}
 
 
 var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
@@ -1622,10 +1644,17 @@ var _lastRenderDate=null;
 function resetIfNewDay(){
   var t=today();
   if(_lastRenderDate&&_lastRenderDate!==t){
-    // New day! Reset mealDate and reload
-    if(S.mealDate&&S.mealDate!==t){
-      S.mealDate=null;
-      if(S.user&&!S.user.isAdmin){loadUserData();}
+    // New day! Reset everything to today
+    console.log('New day detected, resetting to today');
+    S.mealDate=null;
+    S.summaryDate=null;
+    if(S.user&&!S.user.isAdmin){
+      S.meals={morning:[],lunch:[],evening:[]};
+      S.snacks={morning:[],lunch:[],evening:[]};
+      S.water=0;S.activities=[];
+      loadUserData();
+      // Restart diary sync for new day
+      if(typeof startDiarySync==='function')startDiarySync(S.user.email);
     }
   }
   _lastRenderDate=t;
