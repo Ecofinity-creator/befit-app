@@ -161,9 +161,12 @@ document.addEventListener('click',updateActivity);
 document.addEventListener('keydown',updateActivity);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)checkSessionTimeout();});
 // Test Firebase connection on load
-fsdb.collection("data").limit(1).get()
-  .then(function(){console.log("✅ Firestore verbonden");document.title="✅ Be Fit";setTimeout(function(){document.title="Be Fit";},2000);})
-  .catch(function(e){console.error("❌ Firestore fout:",e.message);document.title="❌ Firestore fout";});
+// Firestore verbindingstest (stil - geen UI feedback)
+setTimeout(function(){
+  fsdb.collection("data").limit(1).get()
+    .then(function(){console.log("\u2705 Firestore verbonden");})
+    .catch(function(e){console.warn("\u26A0\uFE0F Firestore:",e.code,"(normaal als regels auth vereisen voor inloggen)");});
+},1000);
 function fsKey(k){return k.replace(/\./g,"__dot__").replace(/@/g,"__at__").replace(/:/g,"__col__");}
 function fromFsKey(k){return k.replace(/__dot__/g,".").replace(/__at__/g,"@").replace(/__col__/g,":");}
 const DB={get:function(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}fsdb.collection("data").doc(fsKey(k)).set({v:JSON.stringify(v),t:Date.now()}).then(function(){}).catch(function(e){console.warn("Firestore write failed for",k,":",e.message);});},del:function(k){localStorage.removeItem(k);fsdb.collection("data").doc(fsKey(k)).delete().catch(function(){});},keys:function(){return Object.keys(localStorage);}};
@@ -466,12 +469,17 @@ function renderAdminTabContent(ch){
       +'<div id="chpw-err" style="color:#C0392B;font-size:11px;margin-bottom:8px;display:none;"></div>'
       +'<button onclick="changeAdminPassword()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F511; Wachtwoord opslaan</button>'
       +'</div>'
-      +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
+      +(S.user.email===SYSTEM_ADMIN
+      ?'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
       +'<div style="font-size:12px;color:#9E9580;margin-bottom:10px;">Nodig voor AI voedingsanalyse. Aanmaken via console.anthropic.com</div>'
       +'<input id="api-key-input" type="password" placeholder="sk-ant-..." value="'+apiKey+'" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;"/>'
       +'<button onclick="saveApiKey()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button>'
       +(apiKey?'<div style="font-size:11px;color:#2A6030;margin-top:8px;text-align:center;">&#x2713; API-sleutel ingesteld</div>':'')
       +'</div>'
+      :'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
+      +(apiKey?'<div style="font-size:12px;color:#2A6030;">&#x2713; API-sleutel is ingesteld door de beheerder.</div>'
+      :'<div style="font-size:12px;color:#9E9580;">De API-sleutel wordt beheerd door de systeembeheerder.</div>')
+      +'</div>')
       +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F469;&#x200D;&#x2695;&#xFE0F;</div><span class="card-title">Di\u00ebtistes beheren</span></div>'
       +eList
       +'<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EAE2D0;"><div style="font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:10px;">Nieuwe di\u00ebtiste</div>'
