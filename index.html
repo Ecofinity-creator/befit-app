@@ -183,16 +183,25 @@ async function syncAllFromFirestore(){
 // Load all user profiles directly from Firestore for admin
 async function loadAdminClientsFromFirestore(){
   try{
-    // Get all docs whose key starts with 'user:'
+    // Load user profiles
     var snap=await fsdb.collection('data')
       .orderBy('__name__')
       .startAt(fsKey('user:a'))
-      .endAt(fsKey('user:'+'\uf8ff'))
+      .endAt(fsKey('user:\uf8ff'))
       .get();
     snap.forEach(function(doc){
       try{if(doc.data()&&doc.data().v)localStorage.setItem(fromFsKey(doc.id),doc.data().v);}catch(e){}
     });
     console.log('Loaded',snap.size,'user profiles from Firestore');
+    // Also load today's diary for each client
+    var emails=snap.docs.map(function(doc){return fromFsKey(doc.id).replace('user:','');});
+    var diaryPromises=emails.map(function(email){
+      var diaryKey='diary:'+email+':'+today();
+      return fsdb.collection('data').doc(fsKey(diaryKey)).get()
+        .then(function(d){if(d.exists&&d.data().v)localStorage.setItem(diaryKey,d.data().v);})
+        .catch(function(){});
+    });
+    await Promise.all(diaryPromises);
     loadAdminClients();
     render();
   }catch(e){
@@ -369,7 +378,7 @@ function renderAdminBroadcasts(){
 
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
-      +'<button onclick="showInviteModal()" style="background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:14px;">&#x2709;&#xFE0F; Klant uitnodigen</button>'
+      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week'].includes(S.adminTab)){
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
