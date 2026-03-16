@@ -243,7 +243,8 @@ function startDiarySync(email){
     var local=DB.get(key)||{};
     if(!local.ts||remote.ts>local.ts){
       localStorage.setItem(key,JSON.stringify(remote));
-      if(!S.mealDate||S.mealDate===today()){
+      // ONLY update live state if this snapshot is for TODAY
+      if(syncDate===today()&&(!S.mealDate||S.mealDate===today())){
         S.meals=remote.meals||{morning:[],lunch:[],evening:[]};
         S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};
         S.water=remote.water||0;S.activities=remote.activities||[];
@@ -264,7 +265,20 @@ function closeNotif(){document.getElementById('notif-bar').style.display='none';
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');}
 
 function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
-function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
+function loadUserData(){if(!S.user)return;
+  var targetDate=S.mealDate||today();
+  var d=DB.get('diary:'+S.user.email+':'+targetDate);
+  if(d){
+    S.meals=d.meals||{morning:[],lunch:[],evening:[]};
+    S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};
+    S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];
+  } else if(!S.mealDate){
+    // No data for today - start fresh
+    S.meals={morning:[],lunch:[],evening:[]};
+    S.snacks={morning:[],lunch:[],evening:[]};
+    S.water=0;S.reminders=[];S.activities=[];
+  }
+}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
 async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var _isSysAdmin=email===SYSTEM_ADMIN&&(pass===SYSTEM_PASS||btoa(pass)===SYSTEM_PASS);
