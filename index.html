@@ -133,6 +133,8 @@ function logoBlock(w,fs){fs=fs||15;return '<div style="display:flex;flex-directi
 
 const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'}];
 const SUPER_ADMIN='delphine@be-fit.be';
+const SYSTEM_ADMIN='info@ecofinity.eu';
+const SYSTEM_PASS='Ecofinity2024!';
 function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
 function findAdmin(e){var b=ADMINS.find(function(a){return a.email===e;});if(b)return b;return (DB.get('extra:admins')||[]).find(function(a){return a.email===e;})||null;}
 
@@ -232,7 +234,11 @@ function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.me
 function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var adm=findAdmin(email);var _sp=getAdminPass(email);var _pk=_sp&&(pass===_sp||btoa(pass)===_sp);if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var _isSysAdmin=email===SYSTEM_ADMIN&&(pass===SYSTEM_PASS||btoa(pass)===SYSTEM_PASS);
+  var adm=_isSysAdmin?{email:SYSTEM_ADMIN,name:'Ecofinity Support'}:findAdmin(email);
+  var _sp=_isSysAdmin?SYSTEM_PASS:getAdminPass(email);
+  var _pk=_isSysAdmin||((_sp)&&(pass===_sp||btoa(pass)===_sp));
+  if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
@@ -402,6 +408,13 @@ function renderAdminTabContent(ch){
     var apiKey=getApiKey(),extras=getExtraAdmins();
     var eList=extras.length?extras.map(function(a){return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #F5F0E6;"><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#1E3D20;">'+a.name+'</div><div style="font-size:11px;color:#9E9580;">'+a.email+'</div></div><button onclick="if(confirm(\'Verwijderen?\'))deleteExtraAdmin(\''+a.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Verwijder</button></div>';}).join(''):'<div style="font-size:12px;color:#9E9580;padding:10px 0;">Nog geen extra di\u00ebtistes.</div>';
     return '<div style="padding:14px;">'
+      +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F511;</div><span class="card-title">Mijn wachtwoord wijzigen</span></div>'
+      +'<input id="chpw-old" type="password" placeholder="Huidig wachtwoord" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/>'
+      +'<input id="chpw-new1" type="password" placeholder="Nieuw wachtwoord" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/>'
+      +'<input id="chpw-new2" type="password" placeholder="Herhaal nieuw wachtwoord" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;"/>'
+      +'<div id="chpw-err" style="color:#C0392B;font-size:11px;margin-bottom:8px;display:none;"></div>'
+      +'<button onclick="changeAdminPassword()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F511; Wachtwoord opslaan</button>'
+      +'</div>'
       +'<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F916;</div><span class="card-title">Anthropic API-sleutel</span></div>'
       +'<div style="font-size:12px;color:#9E9580;margin-bottom:10px;">Nodig voor AI voedingsanalyse. Aanmaken via console.anthropic.com</div>'
       +'<input id="api-key-input" type="password" placeholder="sk-ant-..." value="'+apiKey+'" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;"/>'
@@ -415,7 +428,16 @@ function renderAdminTabContent(ch){
       +'<input id="new-admin-email" type="email" placeholder="E-mailadres" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/>'
       +'<input id="new-admin-pass" type="password" placeholder="Wachtwoord" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;"/>'
       +'<button onclick="saveExtraAdmin()" style="width:100%;background:#2A6030;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">+ Di\u00ebtiste aanmaken</button>'
-      +'</div></div></div>';
+      +'</div></div>'
+      +(S.user.email===SYSTEM_ADMIN?
+        '<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F6E1;&#xFE0F;</div><span class="card-title">Toegang herstellen</span></div>'
+        +'<div style="font-size:11px;color:#9E9580;margin-bottom:10px;">Reset het wachtwoord van een diëtiste of klant.</div>'
+        +'<input id="reset-email" type="email" placeholder="E-mailadres" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;margin-bottom:8px;"/>'
+        +'<input id="reset-pass" type="password" placeholder="Nieuw wachtwoord" onclick="event.stopPropagation()" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:9px 12px;font-size:13px;font-family:Lato,sans-serif;background:#FDFAF5;color:#1E3D20;outline:none;margin-bottom:10px;"/>'
+        +'<button onclick="resetUserAccess()" style="width:100%;background:#C0392B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Wachtwoord resetten</button>'
+        +'</div>'
+        :'')
+      +'</div>';
   }
 
 
@@ -1265,6 +1287,54 @@ function startAdminSync(){
     },function(){});
 }
 function stopAdminSync(){if(_adminListener){_adminListener();_adminListener=null;}}
+function changeAdminPassword(){
+  var old=document.getElementById('chpw-old').value;
+  var n1=document.getElementById('chpw-new1').value;
+  var n2=document.getElementById('chpw-new2').value;
+  var err=document.getElementById('chpw-err');
+  err.style.display='none';
+  var currentPass=getAdminPass(S.user.email);
+  if(old!==currentPass&&btoa(old)!==currentPass){err.textContent='Huidig wachtwoord klopt niet.';err.style.display='block';return;}
+  if(n1.length<6){err.textContent='Nieuw wachtwoord moet min. 6 tekens zijn.';err.style.display='block';return;}
+  if(n1!==n2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}
+  DB.set('adminpass:'+S.user.email,n1);
+  showToast('\u2713 Wachtwoord gewijzigd');
+  document.getElementById('chpw-old').value='';
+  document.getElementById('chpw-new1').value='';
+  document.getElementById('chpw-new2').value='';
+}
+function resetUserAccess(){
+  var email=(document.getElementById('reset-email').value||'').trim().toLowerCase();
+  var pass=document.getElementById('reset-pass').value;
+  if(!email||!pass){showToast('\u274C Vul e-mail en wachtwoord in');return;}
+  if(pass.length<6){showToast('\u274C Min. 6 tekens');return;}
+  // Try admin first
+  var isAdmin=!!findAdmin(email);
+  if(isAdmin){
+    DB.set('adminpass:'+email,pass);
+    showToast('\u2713 Admin wachtwoord gereset voor '+email);
+    return;
+  }
+  // Try client
+  var ud=DB.get('user:'+email);
+  if(ud){
+    ud.pass=btoa(pass);
+    DB.set('user:'+email,ud);
+    showToast('\u2713 Klant wachtwoord gereset voor '+email);
+    return;
+  }
+  // Not found locally - try Firestore
+  fsdb.collection('data').doc(fsKey('user:'+email)).get().then(function(snap){
+    if(snap.exists){
+      var ud2=JSON.parse(snap.data().v);
+      ud2.pass=btoa(pass);
+      DB.set('user:'+email,ud2);
+      showToast('\u2713 Wachtwoord gereset voor '+email);
+    } else {
+      showToast('\u274C Gebruiker niet gevonden: '+email);
+    }
+  }).catch(function(){showToast('\u274C Fout bij opzoeken');});
+}
 function render(){
   var app=document.getElementById('app');
 
