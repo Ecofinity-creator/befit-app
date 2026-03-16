@@ -593,10 +593,12 @@ function renderAdminClient(c,i){
     +'<div style="font-size:10px;font-weight:700;flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'+_mealBadges+'</div>'
     +(hasFb?'<div style="font-size:10px;color:#C9A84C;font-weight:700;">\u270D\uFE0F Feedback</div>':'')+badge
     +'</div>'
+    +(status==='pending'?aBtns:'')
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
     +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
     +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+chatSec:'')
+    +(status==='rejected'?aBtns:'')
     +'</div></div>';
 }
 
