@@ -19,7 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Lato',sans-serif;background:linear-gradient(160deg,#1E3D20 0%,#2A6030 60%,#4A8E7B 100%);background-attachment:fixed;color:#2C3E28;max-width:480px;margin:0 auto;min-height:100vh;transition:background .3s;}
+body{font-family:'Lato',sans-serif;background:linear-gradient(160deg,#1E3D20 0%,#2A6030 60%,#4A8E7B 100%);background-attachment:fixed;color:#2C3E28;width:100%;max-width:480px;margin:0 auto;min-height:100vh;transition:background .3s;}
 body.dark .card{background:#1a2a1c;border:1px solid #2A4030;}
 body.dark .card{background:#1a2a1c!important;padding-bottom:22px!important;}
 body.dark .card-head{background:linear-gradient(135deg,#0f1e10,#1a3020)!important;border-bottom:1px solid #2A4030!important;}
@@ -170,35 +170,30 @@ body.dark .admin-client-card{background:#1a2a1c;}
 
 /* Tablet (481px – 900px) */
 @media (min-width: 481px) {
-  body {
-    max-width: 600px;
-    padding: 20px 24px;
-  }
-  .card { padding: 20px 20px 26px; }
-  .card-head { margin: -20px -20px 18px; padding: 14px 20px; }
+  body { max-width: 640px; }
+  .content { padding: 16px 18px 90px; }
   .card-title { font-size: 16px; }
-  .nav-item .nav-label { font-size: 10px; }
-  .content { padding: 18px; padding-bottom: 90px; }
-  .txt-in, .field-in { font-size: 14px; padding: 11px 14px; }
-  .btn-primary { font-size: 15px; padding: 14px; }
+  .txt-in, .field-in { font-size: 14px; }
   .app-header { padding: 12px 20px; }
-  .header-user { font-size: 12px; }
 }
 
 /* Desktop / groot scherm (901px+) */
 @media (min-width: 901px) {
-  body { max-width: 780px; padding: 20px 0; }
-  .content { padding: 20px 20px 100px; }
+  body { max-width: 860px; }
+  .content { padding: 20px 24px 100px; }
   .card { padding: 22px 22px 28px; }
   .card-head { margin: -22px -22px 18px; padding: 14px 22px; }
   .card-title { font-size: 17px; }
   .txt-in, .field-in { font-size: 14px; padding: 12px 16px; }
   .app-header { padding: 14px 24px; }
   .diary-title-bar { padding: 8px 20px; }
+  .nav { justify-content: center; }
+  .nav-item { min-width: 64px; }
 }
 
 @media (min-width: 1200px) {
-  body { max-width: 960px; }
+  body { max-width: 1040px; }
+  .content { padding: 24px 30px 100px; }
 }
 
 </style>
