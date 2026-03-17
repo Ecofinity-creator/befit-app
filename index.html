@@ -318,7 +318,21 @@ function closeNotif(){document.getElementById('notif-bar').style.display='none';
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');}
 
 function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
-function loadUserData(){if(!S.user)return;var d=DB.get('diary:'+S.user.email+':'+(S.mealDate||today()));if(d){S.meals=d.meals||{morning:[],lunch:[],evening:[]};S.snacks=d.snacks||{morning:[],lunch:[],evening:[]};S.water=d.water||0;S.reminders=d.reminders||[];S.activities=d.activities||[];}}
+function loadUserData(){
+  if(!S.user)return;
+  var targetDate = S.mealDate || today();
+  var d = DB.get('diary:'+S.user.email+':'+targetDate);
+  if(d){
+    S.meals = d.meals||{morning:[],lunch:[],evening:[]};
+    S.snacks = d.snacks||{morning:[],lunch:[],evening:[]};
+    S.water = d.water||0; S.reminders = d.reminders||[]; S.activities = d.activities||[];
+  } else {
+    // No diary for this date - always start fresh (especially important for today)
+    S.meals = {morning:[],lunch:[],evening:[]};
+    S.snacks = {morning:[],lunch:[],evening:[]};
+    S.water = 0; S.reminders = []; S.activities = [];
+  }
+}
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
 async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var _isSysAdmin=email===SYSTEM_ADMIN&&(pass===SYSTEM_PASS||btoa(pass)===SYSTEM_PASS);
@@ -332,7 +346,7 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
   if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
-  S.user={email:email,name:ud.name,isAdmin:false};S.meals={morning:[],lunch:[],evening:[]};
+  S.user={email:email,name:ud.name,isAdmin:false};S.mealDate=null;S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
   syncFromFirestore(email).then(function(){loadUserData();render();});
   startDiarySync(email);}
@@ -2037,6 +2051,43 @@ function adminVideoCallUI(clientEmail){
     +'<button onclick="event.stopPropagation();S.tab=\'video\';startCall(\''+clientEmail+'\');render();" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;">📹 Start videogesprek met '+DB.get('user:'+clientEmail)?.name+'</button>'
     +'</div>';
 }
+
+
+// ── DATUM RESET BIJ NIEUWE DAG ───────────────────────────────
+var _lastKnownDate = today();
+
+function resetToToday(){
+  var t = today();
+  if(_lastKnownDate !== t || (S.mealDate && S.mealDate !== t)){
+    console.log('Nieuwe dag of datum reset:', t);
+    _lastKnownDate = t;
+    S.mealDate = null;
+    S.summaryDate = null;
+    if(S.user && !S.user.isAdmin){
+      S.meals = {morning:[],lunch:[],evening:[]};
+      S.snacks = {morning:[],lunch:[],evening:[]};
+      S.water = 0; S.activities = [];
+      loadUserData();
+      if(typeof startDiarySync === 'function') startDiarySync(S.user.email);
+    }
+  }
+  _lastKnownDate = t;
+}
+
+// Reset when app comes to foreground
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){
+    resetToToday();
+    if(S.user && !S.user.isAdmin && typeof startDiarySync === 'function'){
+      startDiarySync(S.user.email);
+    }
+  }
+});
+
+// Check every minute
+setInterval(function(){
+  resetToToday();
+}, 60000);
 
 function render(){
   var app=document.getElementById('app');
