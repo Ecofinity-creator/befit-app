@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="nl">
 <head>
 <meta charset="UTF-8"/>
@@ -363,29 +364,11 @@ function loadUserData(){
 }
 function loadAdminClients(){S.adminClients=DB.keys().filter(function(k){return k.startsWith('user:')&&k!=='user:'+S.user.email;}).map(function(k){return DB.get(k);}).filter(function(u){return u&&u.email&&u.name;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(u){return Object.assign({},u,{diary:DB.get('diary:'+u.email+':'+today())||null});});}
 
-async function doLogin(){
-  var email=document.getElementById('li-email').value.trim().toLowerCase();
-  var pass=document.getElementById('li-pass').value;
-  var err=document.getElementById('li-err');
-  err.classList.remove('show');
-  console.log('LOGIN ATTEMPT:',email);
-  console.log('SYSTEM_ADMIN:',SYSTEM_ADMIN,'SYSTEM_PASS:',SYSTEM_PASS);
-  if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}
-  var _isSysAdmin=email===SYSTEM_ADMIN&&(pass===SYSTEM_PASS||btoa(pass)===SYSTEM_PASS);
-  console.log('isSysAdmin:',_isSysAdmin,'pass===SYSTEM_PASS:',pass===SYSTEM_PASS,'btoa(pass):',btoa(pass));
+async function doLogin(){var email=document.getElementById('li-email').value.trim().toLowerCase(),pass=document.getElementById('li-pass').value,err=document.getElementById('li-err');err.classList.remove('show');if(!email||!pass){err.textContent='Vul je e-mail en wachtwoord in.';err.classList.add('show');return;}var _isSysAdmin=email===SYSTEM_ADMIN&&(pass===SYSTEM_PASS||btoa(pass)===SYSTEM_PASS);
   var adm=_isSysAdmin?{email:SYSTEM_ADMIN,name:'Ecofinity Support'}:findAdmin(email);
   var _sp=_isSysAdmin?SYSTEM_PASS:getAdminPass(email);
   var _pk=_isSysAdmin||((_sp)&&(pass===_sp||btoa(pass)===_sp));
-  if(adm&&_pk){
-    console.log('ADMIN LOGIN OK');
-    S.user={email:email,name:adm.name,isAdmin:true};
-    S.screen='admin';S.adminTab='clients';
-    loadAdminClients();render();
-    syncAllFromFirestore().then(function(){loadAdminClients();render();}).catch(function(e){console.warn('sync:',e);});
-    try{loadAdminClientsFromFirestore();}catch(e){console.warn(e);}
-    try{startAdminSync();}catch(e){console.warn(e);}
-    return;
-  }err.textContent='Even geduld…';err.classList.add('show');
+  if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
