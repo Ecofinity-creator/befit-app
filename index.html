@@ -222,6 +222,23 @@ var fsdb=firebase.firestore();
 var fsauth=firebase.auth();
 
 function fsKey(k){return k.replace(/[^a-zA-Z0-9_\-:.]/g,'_');}
+function fromFsKey(k){return k;} // fsKey is identity-safe for our keys
+
+async function syncFromFirestore(email){
+  var keys=['user:'+email,'chat:'+email,'broadcast:messages','broadcast:read:'+email,
+    'weights:'+email,'push:sub:'+email,'push:backend:url','anthropic:apikey',
+    'extra:admins','analyse_day:'+email+':'+today(),'goals:'+email,'measurements:'+email];
+  for(var i=0;i<7;i++){var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    keys.push('diary:'+email+':'+ds,'feedback:'+email+':'+ds,'wellbeing:'+email+':'+ds);
+    ['morning','lunch','evening'].forEach(function(k){keys.push('analyse:'+email+':'+ds+':'+k);});
+  }
+  await Promise.all(keys.map(async function(k){
+    try{var snap=await fsdb.collection('data').doc(fsKey(k)).get();
+      if(snap.exists)localStorage.setItem(k,snap.data().v);
+    }catch(e){}
+  }));
+}
 
 // ── DB ────────────────────────────────────────────────────────
 var DB={
