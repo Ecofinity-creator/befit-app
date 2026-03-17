@@ -187,47 +187,20 @@ body.dark .admin-client-card{background:#1a2a1c;}
 
 /* Desktop / groot scherm (901px+) */
 @media (min-width: 901px) {
-  body {
-    max-width: 780px;
-    padding: 30px 0;
-  }
-  /* Two-column layout for cards on desktop */
-  .content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    padding: 24px;
-    padding-bottom: 24px;
-    align-items: start;
-  }
-  /* Some cards span full width */
-  .card.full-width { grid-column: 1 / -1; }
-  .card { padding: 22px 22px 28px; margin-bottom: 0; }
+  body { max-width: 780px; padding: 20px 0; }
+  .content { padding: 20px 20px 100px; }
+  .card { padding: 22px 22px 28px; }
   .card-head { margin: -22px -22px 18px; padding: 14px 22px; }
   .card-title { font-size: 17px; }
-  .nav-bar {
-    position: sticky;
-    top: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-    border-top: none;
-    padding: 0;
-    height: auto;
-  }
-  .nav-item {
-    padding: 12px 10px 10px;
-    min-width: 60px;
-  }
-  .nav-item .nav-label { font-size: 10px; }
   .txt-in, .field-in { font-size: 14px; padding: 12px 16px; }
   .app-header { padding: 14px 24px; }
   .diary-title-bar { padding: 8px 20px; }
 }
 
-/* Large desktop (1200px+) */
 @media (min-width: 1200px) {
   body { max-width: 960px; }
-  .content { grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 }
+
 </style>
 </head>
 <body>
