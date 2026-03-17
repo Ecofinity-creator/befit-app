@@ -1,8 +1,12 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <title>Be Fit – Mijn persoonlijk eetdagboekje</title>
+<!-- Verdify v1.1 -->
 <link rel="manifest" href="manifest.json"/>
 <meta name="theme-color" content="#1E3D20"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -137,6 +141,7 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .admin-chat-input{display:flex;gap:6px;padding:8px;background:#fff;border-top:1px solid #EAE2D0;}
 .admin-chat-input input{flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Lato',sans-serif;outline:none;}
 .admin-chat-input button{background:#1E3D20;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;}
+@keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.1);}100%{transform:scale(1);}}
 </style>
 </head>
 <body>
@@ -576,6 +581,7 @@ function renderAdminClient(c,i){
   }
   var wtOn=isWeightEnabled(c.email);
     var chatOn=(DB.get('user:'+c.email)||{}).chatEnabled!==false;
+  var vidOn=isVideoEnabled(c.email);
   var anlOn=isAnalyseEnabled(c.email);
   var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
   var hasData=_aDate===today()?(d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0)):_dHasData;
@@ -669,6 +675,7 @@ function renderAdminClient(c,i){
       +'<button onclick="toggleChat(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
       +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
       +'<button onclick="toggleWeight(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(wtOn?'#EAF4F2':'#F5F5F5')+';color:'+(wtOn?'#2A6030':'#9E9580')+';border:1px solid '+(wtOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2696;&#xFE0F; Gewicht <span style="font-size:10px;background:'+(wtOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(wtOn?'AAN':'UIT')+'</span></button>'
+      +'<button onclick="toggleVideo(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(vidOn?'#EAF4F2':'#F5F5F5')+';color:'+(vidOn?'#2A6030':'#9E9580')+';border:1px solid '+(vidOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4F9; Video <span style="font-size:10px;background:'+(vidOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(vidOn?'AAN':'UIT')+'</span></button>'
       +'</div>'
       :'')
     +'<div style="display:flex;align-items:center;gap:6px;">'
@@ -1745,6 +1752,209 @@ function fetchClientAnalyse(email){
     render();
   });
 }
+
+// ── WEBRTC VIDEO BELLEN ───────────────────────────────────────
+var _pc=null,_localStream=null,_callActive=false,_callRole=null,_callEmail=null;
+var STUN={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+
+function isVideoEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return ud&&ud.videoEnabled===true;}
+function toggleVideo(email){var ud=DB.get('user:'+email);if(!ud)return;ud.videoEnabled=!ud.videoEnabled;DB.set('user:'+email,ud);showToast(ud.videoEnabled?'Video bellen ingeschakeld':'Video bellen uitgeschakeld');loadAdminClients();render();}
+
+function _vcKey(email){return 'videocall:'+email;}
+
+async function startCall(clientEmail){
+  // Admin starts a call to a client
+  _callRole='caller';_callEmail=clientEmail;
+  try{
+    _localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    _pc=new RTCPeerConnection(STUN);
+    _localStream.getTracks().forEach(function(t){_pc.addTrack(t,_localStream);});
+    _pc.ontrack=function(e){var rv=document.getElementById('vc-remote');if(rv&&e.streams[0])rv.srcObject=e.streams[0];};
+    _pc.onicecandidate=function(e){
+      if(e.candidate){
+        var key=_vcKey(clientEmail)+':caller_ice';
+        var list=JSON.parse(localStorage.getItem(key)||'[]');
+        list.push(e.candidate.toJSON());
+        fsdb.collection('data').doc(fsKey(key)).set({v:JSON.stringify(list)}).catch(function(){});
+      }
+    };
+    var offer=await _pc.createOffer();
+    await _pc.setLocalDescription(offer);
+    await fsdb.collection('data').doc(fsKey(_vcKey(clientEmail))).set({v:JSON.stringify({status:'calling',offer:offer,caller:S.user.email,ts:Date.now()})});
+    _callActive=true;
+    render();
+    // Push notification to client
+    var sub=DB.get('push:sub:'+clientEmail);
+    if(sub)sendPushToClient(sub,'📹 Videogesprek','Je diëtiste wil je bellen. Open de app!','video');
+    // Listen for answer
+    var unsub=fsdb.collection('data').doc(fsKey(_vcKey(clientEmail))).onSnapshot(async function(snap){
+      if(!snap.exists||!_pc)return;
+      var data=JSON.parse(snap.data().v);
+      if(data.status==='answered'&&data.answer&&_pc.signalingState==='have-local-offer'){
+        await _pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        unsub();
+      }
+      if(data.status==='ended'){endCall();unsub();}
+    });
+    // Listen for client ICE candidates
+    var unsubIce=fsdb.collection('data').doc(fsKey(_vcKey(clientEmail)+':callee_ice')).onSnapshot(async function(snap){
+      if(!snap.exists||!_pc||!_pc.remoteDescription)return;
+      var candidates=JSON.parse(snap.data().v||'[]');
+      for(var i=0;i<candidates.length;i++){try{await _pc.addIceCandidate(new RTCIceCandidate(candidates[i]));}catch(e){}}
+    });
+  }catch(err){showToast('❌ Camera/microfoon fout: '+err.message);endCall();}
+}
+
+async function answerCall(){
+  // Client answers the call
+  _callRole='callee';
+  try{
+    var snap=await fsdb.collection('data').doc(fsKey(_vcKey(S.user.email))).get();
+    if(!snap.exists)return;
+    var data=JSON.parse(snap.data().v);
+    if(data.status!=='calling')return;
+    _callEmail=data.caller;
+    _localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    _pc=new RTCPeerConnection(STUN);
+    _localStream.getTracks().forEach(function(t){_pc.addTrack(t,_localStream);});
+    _pc.ontrack=function(e){var rv=document.getElementById('vc-remote');if(rv&&e.streams[0])rv.srcObject=e.streams[0];};
+    _pc.onicecandidate=function(e){
+      if(e.candidate){
+        var key=_vcKey(S.user.email)+':callee_ice';
+        var list=JSON.parse(localStorage.getItem(key)||'[]');
+        list.push(e.candidate.toJSON());
+        fsdb.collection('data').doc(fsKey(key)).set({v:JSON.stringify(list)}).catch(function(){});
+      }
+    };
+    await _pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    var answer=await _pc.createAnswer();
+    await _pc.setLocalDescription(answer);
+    await fsdb.collection('data').doc(fsKey(_vcKey(S.user.email))).set({v:JSON.stringify({status:'answered',answer:answer,ts:Date.now()})});
+    _callActive=true;
+    render();
+    setTimeout(function(){var lv=document.getElementById('vc-local');if(lv&&_localStream)lv.srcObject=_localStream;},100);
+    // Listen for caller ICE candidates
+    fsdb.collection('data').doc(fsKey(_vcKey(S.user.email)+':caller_ice')).onSnapshot(async function(snap){
+      if(!snap.exists||!_pc||!_pc.remoteDescription)return;
+      var candidates=JSON.parse(snap.data().v||'[]');
+      for(var i=0;i<candidates.length;i++){try{await _pc.addIceCandidate(new RTCIceCandidate(candidates[i]));}catch(e){}}
+    });
+    // Listen for call end
+    fsdb.collection('data').doc(fsKey(_vcKey(S.user.email))).onSnapshot(function(snap){
+      if(!snap.exists)return;
+      var d=JSON.parse(snap.data().v);
+      if(d.status==='ended')endCall();
+    });
+  }catch(err){showToast('❌ Fout: '+err.message);endCall();}
+}
+
+function declineCall(){S.incomingCall=null;if(S.user)fsdb.collection('data').doc(fsKey('videocall:'+S.user.email)).set({v:JSON.stringify({status:'declined'})}).catch(function(){});render();}
+function endCall(){
+  if(_pc){_pc.close();_pc=null;}
+  if(_localStream){_localStream.getTracks().forEach(function(t){t.stop();});_localStream=null;}
+  if(_callEmail&&_callRole==='caller'){
+    fsdb.collection('data').doc(fsKey(_vcKey(_callEmail))).set({v:JSON.stringify({status:'ended',ts:Date.now()})}).catch(function(){});
+  }
+  _callActive=false;_callRole=null;_callEmail=null;
+  render();
+}
+
+function toggleMic(){
+  if(!_localStream)return;
+  var at=_localStream.getAudioTracks();
+  if(at.length){at[0].enabled=!at[0].enabled;render();}
+}
+function toggleCam(){
+  if(!_localStream)return;
+  var vt=_localStream.getVideoTracks();
+  if(vt.length){vt[0].enabled=!vt[0].enabled;render();}
+}
+function isMicOn(){return _localStream&&_localStream.getAudioTracks().length&&_localStream.getAudioTracks()[0].enabled;}
+function isCamOn(){return _localStream&&_localStream.getVideoTracks().length&&_localStream.getVideoTracks()[0].enabled;}
+
+// Check for incoming calls every 5 seconds
+setInterval(async function(){
+  if(!S.user||S.user.isAdmin||_callActive)return;
+  try{
+    var snap=await fsdb.collection('data').doc(fsKey(_vcKey(S.user.email))).get();
+    if(!snap.exists)return;
+    var data=JSON.parse(snap.data().v);
+    if(data.status==='calling'&&Date.now()-data.ts<60000){
+      S.incomingCall=data;
+      render();
+    } else if(S.incomingCall&&data.status!=='calling'){
+      S.incomingCall=null;render();
+    }
+  }catch(e){}
+},5000);
+
+function incomingCallBanner(){
+  if(!S.incomingCall)return '';
+  return '<div onclick="event.stopPropagation()" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:90%;max-width:400px;background:#1E3D20;border-radius:16px;padding:16px 20px;z-index:8000;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;align-items:center;gap:12px;">'
+    +'<div style="font-size:32px;">\uD83D\uDCF9</div>'
+    +'<div style="flex:1;color:#F0EAD6;"><div style="font-weight:700;font-size:14px;">Inkomend videogesprek</div>'
+    +'<div style="font-size:11px;color:#A8D4B8;">Je di\u00ebtiste wil bellen</div></div>'
+    +'<button onclick="answerCall()" style="background:#2ECC71;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;font-family:Lato,sans-serif;margin-right:6px;">\u2713 Opnemen</button>'
+    +'<button onclick="declineCall()" style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:Lato,sans-serif;">\u00D7</button>'
+    +'</div>';
+}
+
+function videoCallUI(){
+  if(!_callActive)return '';
+  var micOn=isMicOn(),camOn=isCamOn();
+  return '<div onclick="event.stopPropagation()" style="position:fixed;inset:0;background:#0a0a0a;z-index:9500;display:flex;flex-direction:column;">'
+    +'<video id="vc-remote" autoplay playsinline style="flex:1;width:100%;object-fit:cover;background:#111;"></video>'
+    +'<video id="vc-local" autoplay playsinline muted style="position:absolute;bottom:90px;right:12px;width:100px;height:140px;border-radius:10px;object-fit:cover;border:2px solid #4A8E7B;background:#222;"></video>'
+    +'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:12px;display:flex;justify-content:center;gap:12px;">'
+    +'<button onclick="toggleMic()" style="width:52px;height:52px;border-radius:50%;background:'+(micOn?'#2A2A2A':'#C0392B')+';color:#fff;border:none;font-size:20px;cursor:pointer;">'+(micOn?'🎙️':'🔇')+'</button>'
+    +'<button onclick="endCall()" style="width:64px;height:64px;border-radius:50%;background:#C0392B;color:#fff;border:none;font-size:22px;cursor:pointer;">📵</button>'
+    +'<button onclick="toggleCam()" style="width:52px;height:52px;border-radius:50%;background:'+(camOn?'#2A2A2A':'#C0392B')+';color:#fff;border:none;font-size:20px;cursor:pointer;">'+(camOn?'📷':'🚫')+'</button>'
+    +'</div>'
+    +'<div style="position:absolute;top:12px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.6);font-size:11px;">Verbonden</div>'
+    +'</div>';
+}
+
+function videoBlock(){
+  if(_callActive)return videoCallUI();
+  if(!isVideoEnabled()){
+    return '<div class="card" style="text-align:center;padding:30px 16px;">'
+      +'<div style="font-size:36px;margin-bottom:10px;">🎥</div>'
+      +'<div style="font-size:14px;font-weight:700;color:#1E3D20;margin-bottom:6px;">Video consult</div>'
+      +'<div style="font-size:12px;color:#9E9580;">Video bellen is niet ingeschakeld voor jouw account.</div>'
+      +'</div>';
+  }
+  // Check for incoming call
+  if(S.incomingCall){
+    return '<div class="card" style="text-align:center;padding:24px 16px;">'
+      +'<div style="font-size:48px;margin-bottom:12px;animation:pulse 1s infinite;">📹</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#1E3D20;margin-bottom:6px;">Inkomend videogesprek</div>'
+      +'<div style="font-size:12px;color:#9E9580;margin-bottom:20px;">Je diëtiste wil bellen</div>'
+      +'<button onclick="answerCall()" style="width:100%;background:#2ECC71;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:10px;">📹 Opnemen</button>'
+      +'<button onclick="S.incomingCall=null;render()" style="width:100%;background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Weigeren</button>'
+      +'</div>';
+  }
+  return '<div class="card"><div class="card-head"><div class="card-icon-box">🎥</div><span class="card-title">Video consult</span></div>'
+    +'<div style="background:linear-gradient(135deg,#1E3D20,#2A6030);border-radius:12px;padding:24px;text-align:center;">'
+    +'<div style="font-size:48px;margin-bottom:10px;">📹</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#F0EAD6;margin-bottom:6px;">Klaar voor een video consult</div>'
+    +'<div style="font-size:11px;color:#A8D4B8;margin-bottom:4px;">Wacht tot je diëtiste belt</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,0.4);">Je ontvangt een melding wanneer Delphine belt</div>'
+    +'</div></div>';
+}
+
+function adminVideoCallUI(clientEmail){
+  if(_callActive&&_callEmail===clientEmail){
+    return '<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#2ECC71;margin-bottom:8px;">📹 Gesprek actief</div>'
+      +'<button onclick="endCall()" style="width:100%;background:#C0392B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">📵 Beëindig gesprek</button>'
+      +'</div>';
+  }
+  if(!isVideoEnabled(clientEmail))return '';
+  return '<div style="margin-top:12px;border-top:1px solid #EAE2D0;padding-top:12px;">'
+    +'<button onclick="event.stopPropagation();S.tab=\'video\';startCall(\''+clientEmail+'\');render();" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;">📹 Start videogesprek met '+DB.get('user:'+clientEmail)?.name+'</button>'
+    +'</div>';
+}
+
 function render(){
   var app=document.getElementById('app');
 
@@ -1835,7 +2045,7 @@ function render(){
   // CLIENT APP
   var D=new Date(),months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   var tab=S.tab;
-  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='gevoel'?wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():summaryBlock();
+  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='gevoel'?wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='video'?videoBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():summaryBlock();
   var unreadChat=getChat(S.user.email).filter(function(m){return m.from==='admin'&&!m.read;}).length;
   var unreadNews=unreadBroadcastCount(S.user.email);
   function navItem(id,icon,label,active,badge){
@@ -1862,9 +2072,10 @@ function render(){
     +navItem('appt','📅','Agenda',tab==='appt',0)
     +navItem('profile','👤','Profiel',tab==='profile',0)
     +navItem('chat','💬','Chat',tab==='chat',unreadChat||0)
+    +(isVideoEnabled()?navItem('video','🎥','Video',tab==='video',0):'')
     +navItem('news','📢','Nieuws',tab==='news',unreadNews||0)
     +navItem('summary','📋','Dag',tab==='summary',0)
-    +(isAnalyseEnabled()?navItem('photos','📷','Fotos',tab==='photos',0):'')
+    +(isAnalyseEnabled()?navItem('photos','📷','Archief',tab==='photos',0):'')
     +navItem('badges','🏅','Badges',tab==='badges',0)
     +navItem('progress','📸',"Foto's",tab==='progress',0)
     +navItem('templates','⭐','Sjablonen',tab==='templates',0)
@@ -1875,6 +2086,10 @@ function render(){
     +'</div>'
     +'<button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Donkere modus">'
     +(isDarkMode()?'☀️':'🌙')+'</button>';
+  // Video call overlay
+  if(_callActive){var _vc=document.createElement('div');_vc.innerHTML=videoCallUI();document.body.appendChild(_vc.firstChild);setTimeout(function(){var lv=document.getElementById('vc-local');if(lv&&_localStream)lv.srcObject=_localStream;var rv=document.getElementById('vc-remote');if(rv&&_pc){_pc.ontrack=function(e){if(rv&&e.streams[0])rv.srcObject=e.streams[0];};}},50);}
+  // Incoming call banner
+  if(S.incomingCall&&!_callActive){var _icb=document.createElement('div');_icb.innerHTML=incomingCallBanner();if(_icb.firstChild)document.body.appendChild(_icb.firstChild);}
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
   // Onboarding overlay
   var _obDiv=document.getElementById('onboarding-overlay');
