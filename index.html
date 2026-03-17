@@ -6,7 +6,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Be Fit – Mijn persoonlijk eetdagboekje</title>
-<!-- Verdify v1.1 -->
+<!-- Verdify v2.0 build=1773748495 -->
 <link rel="manifest" href="manifest.json"/>
 <meta name="theme-color" content="#1E3D20"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -793,7 +793,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=659107').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773748495').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
