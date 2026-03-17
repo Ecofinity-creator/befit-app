@@ -303,9 +303,28 @@ async function loadAdminClientsFromFirestore(){
 }
 
 var _diaryListener=null;
-function startDiarySync(email){if(_diaryListener)_diaryListener();var key="diary:"+email+":"+today();_diaryListener=fsdb.collection("data").doc(fsKey(key)).onSnapshot(function(snap){if(!snap.exists||!S.user||S.user.email!==email)return;var remote=JSON.parse(snap.data().v);var local=DB.get(key)||{};if(!local.ts||remote.ts>local.ts){localStorage.setItem(key,JSON.stringify(remote));// Only update state if user is currently viewing today
-    if(!S.mealDate||S.mealDate===today()){
-      S.meals=remote.meals||{morning:[],lunch:[],evening:[]};      S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};      S.water=remote.water||0;S.activities=remote.activities||[];render();    }}},function(){});}
+function startDiarySync(email){
+  if(_diaryListener)_diaryListener();
+  var syncDate=today();
+  var key='diary:'+email+':'+syncDate;
+  _diaryListener=fsdb.collection('data').doc(fsKey(key)).onSnapshot(function(snap){
+    // If date changed since listener was created, restart
+    if(today()!==syncDate){startDiarySync(email);return;}
+    if(!snap.exists||!S.user||S.user.email!==email)return;
+    var remote=JSON.parse(snap.data().v);
+    var local=DB.get(key)||{};
+    if(!local.ts||remote.ts>local.ts){
+      localStorage.setItem(key,JSON.stringify(remote));
+      // ONLY update live state if viewing today and this is today's data
+      if(syncDate===today()&&(!S.mealDate||S.mealDate===today())){
+        S.meals=remote.meals||{morning:[],lunch:[],evening:[]};
+        S.snacks=remote.snacks||{morning:[],lunch:[],evening:[]};
+        S.water=remote.water||0;S.activities=remote.activities||[];
+        render();
+      }
+    }
+  },function(){});
+}
 
 
 var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
@@ -346,7 +365,10 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
   if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
-  S.user={email:email,name:ud.name,isAdmin:false};S.mealDate=null;S.meals={morning:[],lunch:[],evening:[]};
+  S.user={email:email,name:ud.name,isAdmin:false};S.mealDate=null;
+  // Clear today's diary from localStorage to avoid stale data
+  localStorage.removeItem('diary:'+email+':'+today());
+  S.meals={morning:[],lunch:[],evening:[]};
   S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
   syncFromFirestore(email).then(function(){loadUserData();render();});
   startDiarySync(email);}
