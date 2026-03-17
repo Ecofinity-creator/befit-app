@@ -793,7 +793,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773748495').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773748920').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -2129,7 +2129,7 @@ function render(){
   // CLIENT APP
   var D=new Date(),months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   var tab=S.tab;
-  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='gevoel'?wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='video'?videoBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():summaryBlock();
+  var tabContent=tab==='morning'?mealBlock('morning'):tab==='lunch'?mealBlock('lunch'):tab==='evening'?mealBlock('evening'):tab==='water'?waterBlock():tab==='gevoel'?wellbeingBlock():tab==='weight'?weightBlock():tab==='appt'?apptBlock():tab==='chat'?chatBlock():tab==='video'?videoBlock():tab==='news'?newsBlock():tab==='profile'?profileBlock():tab==='analyse'?analyseBlock():tab==='photos'?photoArchiveBlock():tab==='badges'?badgesBlock():tab==='progress'?progressPhotosBlock():tab==='templates'?templateBlock():tab==='steps'?stepsBlock():summaryBlock();
   var unreadChat=getChat(S.user.email).filter(function(m){return m.from==='admin'&&!m.read;}).length;
   var unreadNews=unreadBroadcastCount(S.user.email);
   function navItem(id,icon,label,active,badge){
