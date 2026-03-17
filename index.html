@@ -4,7 +4,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Be Fit – Mijn persoonlijk eetdagboekje</title>
 <!-- Verdify v1.1 -->
 <link rel="manifest" href="manifest.json"/>
@@ -164,6 +164,70 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .admin-chat-input input{flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Lato',sans-serif;outline:none;}
 .admin-chat-input button{background:#1E3D20;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;}
 @keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.1);}100%{transform:scale(1);}}
+
+/* ── RESPONSIVE LAYOUT ──────────────────────────────────────── */
+/* Mobile: default (up to 480px) — already optimised */
+
+/* Tablet (481px – 900px) */
+@media (min-width: 481px) {
+  body {
+    max-width: 600px;
+    padding: 20px 24px;
+  }
+  .card { padding: 20px 20px 26px; }
+  .card-head { margin: -20px -20px 18px; padding: 14px 20px; }
+  .card-title { font-size: 16px; }
+  .nav-item .nav-label { font-size: 10px; }
+  .content { padding: 18px; padding-bottom: 90px; }
+  .txt-in, .field-in { font-size: 14px; padding: 11px 14px; }
+  .btn-primary { font-size: 15px; padding: 14px; }
+  .app-header { padding: 12px 20px; }
+  .header-user { font-size: 12px; }
+}
+
+/* Desktop / groot scherm (901px+) */
+@media (min-width: 901px) {
+  body {
+    max-width: 780px;
+    padding: 30px 0;
+  }
+  /* Two-column layout for cards on desktop */
+  .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    padding: 24px;
+    padding-bottom: 24px;
+    align-items: start;
+  }
+  /* Some cards span full width */
+  .card.full-width { grid-column: 1 / -1; }
+  .card { padding: 22px 22px 28px; margin-bottom: 0; }
+  .card-head { margin: -22px -22px 18px; padding: 14px 22px; }
+  .card-title { font-size: 17px; }
+  .nav-bar {
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    border-top: none;
+    padding: 0;
+    height: auto;
+  }
+  .nav-item {
+    padding: 12px 10px 10px;
+    min-width: 60px;
+  }
+  .nav-item .nav-label { font-size: 10px; }
+  .txt-in, .field-in { font-size: 14px; padding: 12px 16px; }
+  .app-header { padding: 14px 24px; }
+  .diary-title-bar { padding: 8px 20px; }
+}
+
+/* Large desktop (1200px+) */
+@media (min-width: 1200px) {
+  body { max-width: 960px; }
+  .content { grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+}
 </style>
 </head>
 <body>
