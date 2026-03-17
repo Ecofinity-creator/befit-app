@@ -94,6 +94,7 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .nav-icon{font-size:20px;display:block;line-height:1;}
 .content{background:var(--bg-cream);padding:14px;padding-bottom:80px;}
 .card{background:#FFFFFF;border-radius:14px;padding:0;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.10);overflow:hidden;}
+.card>*:not(.card-head):not(.sum-title):not(.sum-row){padding-left:16px;padding-right:16px;}
 .card-head{background:linear-gradient(135deg,#1E3D20,#2A6030);display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:0;}
 .card-icon-box{font-size:20px;background:rgba(255,255,255,0.15);border-radius:8px;padding:5px 7px;line-height:1;}
 .card-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:#FFFFFF!important;flex:1;letter-spacing:.3px;}
@@ -135,8 +136,8 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .congrats{background:linear-gradient(135deg,#1E3D20,#2A6030);color:#F0EAD6;border-radius:14px;padding:16px;margin-bottom:14px;text-align:center;}
 .congrats h3{font-family:'Playfair Display',serif;font-size:16px;margin-bottom:4px;}
 .congrats p{font-size:11px;opacity:.85;}
-.sum-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #EAE2D0;}
-.sum-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #F5F0E6;}
+.sum-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:14px;padding:16px 16px 10px;border-bottom:1px solid #EAE2D0;}
+.sum-row{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid #F5F0E6;}
 .sum-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
 .sum-lbl{font-size:11px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
 .sum-val{font-size:13px;color:#2C3E28;line-height:1.7;}
@@ -461,7 +462,7 @@ function summaryBlock(){
   });
   h+='<div class="sum-row"><div class="sum-dot" style="background:#3A8FBD"></div><div style="flex:1"><div class="sum-lbl">\uD83D\uDCA7 Water</div><div class="sum-val">'+mlTotal+' ml</div></div></div>';
   if(S.reminders.length)h+='<div class="sum-row"><div class="sum-dot" style="background:#C9A84C"></div><div style="flex:1"><div class="sum-lbl">\uD83D\uDCC5 Herinneringen</div><div class="sum-val">'+S.reminders.map(function(r){return r.time+' &mdash; '+r.desc;}).join('<br>')+'</div></div></div>';
-  h+='</div>';return h;
+  h+='<div style="height:10px;"></div></div>';return h;
 }
 
 function renderAdminBroadcasts(){
