@@ -1381,15 +1381,7 @@ function generateWeekReport(){
   body+='DAGDETAILS%0D%0A'+lines.join('%0D%0A')+'%0D%0A%0D%0A';
   body+='Ga zo door! Tot volgende week.%0D%0ABe Fit Marke';
   var subject=encodeURIComponent('Jouw weekoverzicht Be Fit Marke');
-  if(confirm('Versturen via WhatsApp? (Annuleren = e-mail)')){
-    var _n=document.getElementById('invite-name');
-    var _wt=encodeURIComponent((_n&&_n.value.trim()?'Hallo '+_n.value.trim()+'!\n\n':'')+'Installeer de Be Fit app:\nhttps://ecofinity-creator.github.io/befit-app/');
-    window.open('https://wa.me/?text='+_wt,'_blank');
-    showToast('\u2713 WhatsApp geopend');
-  }else{
-    window.open('mailto:'+S.user.email+'?subject='+subject+'&body='+body,'_blank');
-  }
-  showToast('\u2713 E-mailclient geopend');
+  window.open('mailto:'+S.user.email+'?subject='+subject+'&body='+body,'_blank');
 }
 function getWellbeing(email,dateStr){return DB.get('wellbeing:'+(email||S.user.email)+':'+(dateStr||today()))||{};}
 function saveWellbeing(field,val){
