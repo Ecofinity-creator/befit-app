@@ -836,21 +836,20 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773748920').then(function(reg){
-    reg.update();setInterval(function(){reg.update();},60000);
+    reg.update();
+    setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
-      var nw=reg.installing;
-      nw.addEventListener('statechange',function(){
-        if(nw.state==='installed'&&navigator.serviceWorker.controller){
-          var b=document.createElement('div');
-          b.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#1E3D20;color:#F0EAD6;text-align:center;padding:12px;z-index:99999;font-family:Lato,sans-serif;font-size:13px;font-weight:700;cursor:pointer;';
-          b.innerHTML='\uD83D\uDD04 Nieuwe versie \u2014 <span style="color:#C9A84C;text-decoration:underline;">Tik om te vernieuwen</span>';
-          b.onclick=function(){nw.postMessage({type:'SKIP_WAITING'});};
-          document.body.appendChild(b);
+      var newSW=reg.installing;
+      newSW.addEventListener('statechange',function(){
+        if(newSW.state==='installed'&&navigator.serviceWorker.controller){
+          newSW.postMessage({type:'SKIP_WAITING'});
         }
       });
     });
   }).catch(function(e){});
-  navigator.serviceWorker.addEventListener('controllerchange',function(){window.location.reload();});}
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    window.location.reload();
+  });}
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
 async function requestNotifPermission(){
@@ -1382,6 +1381,7 @@ function generateWeekReport(){
   body+='Ga zo door! Tot volgende week.%0D%0ABe Fit Marke';
   var subject=encodeURIComponent('Jouw weekoverzicht Be Fit Marke');
   window.open('mailto:'+S.user.email+'?subject='+subject+'&body='+body,'_blank');
+  showToast('\u2713 E-mailclient geopend');
 }
 function getWellbeing(email,dateStr){return DB.get('wellbeing:'+(email||S.user.email)+':'+(dateStr||today()))||{};}
 function saveWellbeing(field,val){
