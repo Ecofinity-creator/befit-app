@@ -624,7 +624,7 @@ function renderAdminClient(c,i){
   var mealLabels={morning:'🌅 Ontbijt',lunch:'☀️ Middagmaal',evening:'🌙 Avondmaal'};
   var mealColors2={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
   var mealRows=['morning','lunch','evening'].map(function(k){
-    var items=dm2[k]||[];
+    var items=(_diary.meals||{})[k]||[];
     if(!items.length)return '';
     return '<div style="margin-bottom:8px;">'
       +'<div style="font-size:10px;font-weight:700;color:'+mealColors2[k]+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+mealLabels[k]+'</div>'
@@ -643,10 +643,10 @@ function renderAdminClient(c,i){
       +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
       +'</div>';}).join('');
   }).join('');
-  var actRows=(d&&d.activities||[]).map(function(a){
+  var actRows=(_diary.activities||[]).map(function(a){
     return '<div style="font-size:11px;color:#4A8E7B;padding:2px 0;">🏃 '+a.type+' — '+a.dur+' min</div>';
   }).join('');
-  var waterRow=d&&d.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' glazen water</div>':'';
+  var waterRow=_diary.water?'<div style="font-size:11px;color:#3A8FBD;padding:2px 0;">💧 '+d.water+' glazen water</div>':'';
   var mealSec=(mealRows||snackRows||actRows||waterRow)
     ?'<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
     +'<div style="font-size:11px;font-weight:700;color:#1E3D20;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">📋 Vandaag gegeten</div>'
@@ -687,7 +687,7 @@ function renderAdminClient(c,i){
     +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+'</div>'
     +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
     +(status==='approved'
-      ?'<div style="display:flex;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
+      ?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
       +'<button onclick="toggleChat(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(chatOn?'#E8F4EE':'#F5F5F5')+';color:'+(chatOn?'#2A6030':'#9E9580')+';border:1px solid '+(chatOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4AC; Chat <span style="font-size:10px;background:'+(chatOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(chatOn?'AAN':'UIT')+'</span></button>'
       +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(anlOn?'#EAF4F2':'#F5F5F5')+';color:'+(anlOn?'#2A6030':'#9E9580')+';border:1px solid '+(anlOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyse <span style="font-size:10px;background:'+(anlOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(anlOn?'AAN':'UIT')+'</span></button>'
       +'<button onclick="toggleWeight(\''+c.email+'\')" style="display:flex;align-items:center;gap:4px;flex:1;justify-content:center;background:'+(wtOn?'#EAF4F2':'#F5F5F5')+';color:'+(wtOn?'#2A6030':'#9E9580')+';border:1px solid '+(wtOn?'#A8D4B8':'#DDD')+';border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2696;&#xFE0F; Gewicht <span style="font-size:10px;background:'+(wtOn?'#2A6030':'#CCC')+';color:#fff;border-radius:10px;padding:1px 6px;margin-left:2px;">'+(wtOn?'AAN':'UIT')+'</span></button>'
