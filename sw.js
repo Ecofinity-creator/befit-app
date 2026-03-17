@@ -1,4 +1,4 @@
-const CACHE_NAME = 'befit-v1773750070';
+const CACHE_NAME = 'befit-v1773782260';
 const ASSETS = [
   './',
   './index.html',
