@@ -1,4 +1,4 @@
-<html lang="nl">
+<html lang        +(function(){var tq=S.adminTab===\'qr\';return \'<div onclick="S.adminTab=\\\'qr\\\';render()" style="\'+tabStyle+\'color:\'+(tq?\'#1E3D20\':\'#9E9580\')+\';border-bottom:\'+(tq?\'3px solid #C9A84C\':\'3px solid transparent\')+\';margin-bottom:-2px;">&#x1F4F1; Installatie</div>\';})()\n="nl">
 <head>
 <meta charset="UTF-8"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
@@ -553,7 +553,36 @@ function renderAdminTabContent(ch){
   }
 
 
-  if(S.adminTab==='week'){
+  if(S.adminTab==='qr'){
+    var appUrl='https://ecofinity-creator.github.io/befit-app/';
+    return '<div style="padding:16px;">'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px;">Klanten installeren</div>'
+      +'<div style="font-size:11px;color:#9E9580;margin-bottom:16px;">Toon deze pagina aan je klanten om de app te installeren.</div>'
+      +'<div style="background:#fff;border-radius:20px;padding:24px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:16px;">'
+      +'<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:700;color:#1E3D20;letter-spacing:5px;margin-bottom:4px;">BE FIT<sup style=\"font-size:10px;vertical-align:super;\">©</sup></div>'
+      +'<div style="font-size:12px;color:#4A8E7B;font-style:italic;margin-bottom:20px;">Mijn persoonlijk eetdagboekje</div>'
+      +'<div style="display:inline-block;background:#fff;border-radius:14px;padding:14px;border:3px solid #1E3D20;box-shadow:0 4px 16px rgba(30,61,32,0.15);margin-bottom:16px;">'
+      +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+appUrl+'&color=1E3D20&bgcolor=FFFFFF&qzone=1&format=png&ecc=H" style="width:200px;height:200px;display:block;border-radius:8px;" alt="QR Code"/>'
+      +'</div>'
+      +'<div style="font-size:11px;color:#5A7A5C;background:rgba(30,61,32,0.06);padding:8px 14px;border-radius:8px;font-family:monospace;margin-bottom:20px;word-break:break-all;">'+appUrl+'</div>'
+      +'<div style="display:flex;gap:10px;margin-bottom:16px;">'
+      +'<div style="flex:1;background:#F0F7F2;border-radius:12px;padding:14px 10px;font-size:11px;color:#3A5A3C;line-height:1.7;text-align:center;">'
+      +'<div style="font-size:22px;margin-bottom:4px;">🍎</div>'
+      +'<strong style="display:block;color:#1E3D20;margin-bottom:4px;">iPhone (Safari)</strong>'
+      +'Scan QR → open link<br>Tik op <strong>↑</strong> Deel<br>"Zet op beginscherm"'
+      +'</div>'
+      +'<div style="flex:1;background:#F0F7F2;border-radius:12px;padding:14px 10px;font-size:11px;color:#3A5A3C;line-height:1.7;text-align:center;">'
+      +'<div style="font-size:22px;margin-bottom:4px;">🤖</div>'
+      +'<strong style="display:block;color:#1E3D20;margin-bottom:4px;">Android (Chrome)</strong>'
+      +'Scan QR → open link<br>Tik op <strong>⋮</strong> Menu<br>"Toevoegen aan beginscherm"'
+      +'</div>'
+      +'</div>'
+      +'<div style="font-size:10px;color:#9E9580;">Powered by <strong style=\"color:rgba(30,61,32,0.6)\">Verdify</strong> &mdash; &copy; '+new Date().getFullYear()+'</div>'
+      +'</div>'
+      +'<button onclick="window.print()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;margin-bottom:10px;">🖨️ Afdrukken / Opslaan als PDF</button>'
+      +'</div>';
+  }
+if(S.adminTab==='week'){
     // Build week overview for all approved clients
     var approved=S.adminClients.filter(function(cl){return (cl.status||'approved')==='approved';});
     if(!approved.length)return '<div style="padding:20px;text-align:center;color:#9E9580;">Geen goedgekeurde klanten.</div>';
