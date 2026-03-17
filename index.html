@@ -367,7 +367,10 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   var adm=_isSysAdmin?{email:SYSTEM_ADMIN,name:'Ecofinity Support'}:findAdmin(email);
   var _sp=_isSysAdmin?SYSTEM_PASS:getAdminPass(email);
   var _pk=_isSysAdmin||((_sp)&&(pass===_sp||btoa(pass)===_sp));
-  if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
+  if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};S.screen='admin';S.adminTab='clients';loadAdminClients();render();
+  // Sync in background without blocking login
+  syncAllFromFirestore().catch(function(e){console.warn('Sync failed:',e);}).finally(function(){loadAdminClients();render();});
+  loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
   try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
@@ -375,11 +378,11 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   if(ud.status==='pending'){err.textContent='Je aanmelding wacht nog op goedkeuring.';err.classList.add('show');return;}
   if(ud.status==='rejected'){err.textContent='Je aanmelding werd niet goedgekeurd.';err.classList.add('show');return;}
   S.user={email:email,name:ud.name,isAdmin:false};S.mealDate=null;
-  // Clear today's diary from localStorage to avoid stale data
   localStorage.removeItem('diary:'+email+':'+today());
   S.meals={morning:[],lunch:[],evening:[]};
-  S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
-  syncFromFirestore(email).then(function(){loadUserData();render();});
+  S.snacks={morning:[],lunch:[],evening:[]};S.water=0;S.reminders=[];
+  loadUserData();S.screen='app';startReminderCheck();render();requestNotifPermission();
+  syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
   startDiarySync(email);}
 function doRegister(){var name=document.getElementById('reg-name').value.trim(),email=document.getElementById('reg-email').value.trim().toLowerCase(),pass=document.getElementById('reg-pass').value,err=document.getElementById('reg-err'),ok=document.getElementById('reg-ok');err.classList.remove('show');ok.classList.remove('show');if(!name||!email||!pass){err.textContent='Vul alle velden in.';err.classList.add('show');return;}if(!email.includes('@')){err.textContent='Geldig e-mailadres vereist.';err.classList.add('show');return;}if(pass.length<6){err.textContent='Min. 6 tekens.';err.classList.add('show');return;}if(DB.get('user:'+email)){err.textContent='Al geregistreerd.';err.classList.add('show');return;}DB.set('user:'+email,{email:email,name:name,pass:btoa(pass),created:Date.now(),status:'pending'});
   // Notify admin via Firestore listener - also send push to all admins
@@ -835,7 +838,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773782260').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1773748920').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
