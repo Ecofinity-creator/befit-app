@@ -430,7 +430,7 @@ function addReminder(){var desc=document.getElementById('rem-desc'),time=documen
 function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
 
 function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
-function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();showNotif('\uD83C\uDF4E Hallo '+_un+'! Tijd voor een tussendoortje na je '+_ml+'.');if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,'Be Fit Marke \uD83C\uDF4E','Hallo '+_un+'! Tijd voor een tussendoortje na je '+_ml+'.','snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
+function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 
 function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
 
@@ -852,70 +852,23 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=177
   });}
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
-async function requestNotifPermission(){if(!('Notification' in window))return;if(Notification.permission==='default'){var p=await Notification.requestPermission();if(p==='granted')subscribePush();}else if(Notification.permission==='granted')subscribePush();}
-function localNotif(title,body,tag){if(Notification.permission!=='granted')return;try{navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});});}catch(e){}}
-function sendPushToClient(sub,title,body,tag){var backendUrl=DB.get('push:backend:url');if(backendUrl)fetch(backendUrl+'/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub,title:title,body:body,tag:tag})}).catch(function(){});}
-function getApiKey(){return DB.get('anthropic:apikey')||'';}
-function saveApiKey(){var k=document.getElementById('api-key-input').value.trim();if(!k){showToast('Vul een API-sleutel in');return;}DB.set('anthropic:apikey',k);showToast('\u2713 Opgeslagen');render();}
-function getExtraAdmins(){return DB.get('extra:admins')||[];}
-function saveExtraAdmin(){var name=document.getElementById('new-admin-name').value.trim(),email=document.getElementById('new-admin-email').value.trim().toLowerCase(),pass=document.getElementById('new-admin-pass').value;if(!name||!email||!pass){showToast('Vul alle velden in');return;}if(pass.length<4){showToast('Wachtwoord min. 4 tekens');return;}var list=getExtraAdmins();if(list.find(function(a){return a.email===email;})){showToast('E-mail bestaat al');return;}list.push({email:email,name:name,pass:btoa(pass),created:Date.now()});DB.set('extra:admins',list);DB.set('adminpass:'+email,btoa(pass));showToast('\u2713 Di\u00ebtiste aangemaakt');render();}
-function deleteExtraAdmin(email){var list=getExtraAdmins().filter(function(a){return a.email!==email;});DB.set('extra:admins',list);DB.del('adminpass:'+email);showToast('Verwijderd');render();}
-function isAnalyseEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return !!(ud&&ud.analyseEnabled===true);}
-function isWeightEnabled(email){var ud=DB.get('user:'+(email||S.user.email));return ud&&ud.weightEnabled===true;}
-function toggleWeight(email){var ud=DB.get('user:'+email);if(!ud)return;ud.weightEnabled=!ud.weightEnabled;DB.set('user:'+email,ud);showToast(ud.weightEnabled?'\u2713 Gewicht vrijgeschakeld':'Gewicht uitgeschakeld');loadAdminClients();render();}
-function toggleAnalyse(email){var ud=DB.get('user:'+email);if(!ud)return;ud.analyseEnabled=!ud.analyseEnabled;DB.set('user:'+email,ud);showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');loadAdminClients();render();}
-function getMealAnalyseKey(email,dateStr,meal){return 'analyse:'+email+':'+dateStr+':'+meal;}
-function mealAlreadyAnalysed(email,dateStr,meal){return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;}
-function toggleChat(email){var ud=DB.get('user:'+email);if(!ud)return;ud.chatEnabled=ud.chatEnabled===false?true:false;DB.set('user:'+email,ud);showToast(ud.chatEnabled===false?'Chat uitgeschakeld':'Chat ingeschakeld');loadAdminClients();render();}
-function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub)sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd!','login');}
-function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Ingetrokken');loadAdminClients();render();}
-function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Verwijderd');loadAdminClients();render();}
-function showInviteModal(){S.showInvite=true;render();setTimeout(function(){var el=document.getElementById('invite-email');if(el)el.focus();},100);}
-function hideInviteModal(){S.showInvite=false;render();}
-function sendInvite(){
-  var email=document.getElementById('invite-email').value.trim();
-  var name=document.getElementById('invite-name').value.trim();
-  if(!email){showToast('Vul een e-mailadres in');return;}
-  var appUrl='https://ecofinity-creator.github.io/befit-app/';
-  var adminName=S.user?S.user.name:'Be Fit Marke';
-  var nl='%0D%0A';
-  var subject=encodeURIComponent('Uitnodiging: Mijn persoonlijk eetdagboekje van Be Fit Marke');
-  var lines=[];
-  if(name)lines.push('Beste '+name+',','');
-  lines.push(
-    'Je di\u00ebtiste '+adminName+' nodigt je uit om het persoonlijk eetdagboekje te gebruiken.',
-    '',
-    '--- INSTALLEER DE APP ---',
-    '',
-    '\uD83D\uDD17 Open de link:',
-    appUrl,
-    '',
-    '\uD83D\uDCF1 Op iPhone (Safari):',
-    '  1. Tik op het deel-icoontje \u2191',
-    '  2. Kies \'Zet op beginscherm\'',
-    '',
-    '\uD83E\uDD16 Op Android (Chrome):',
-    '  1. Tik op de drie puntjes \u22EE',
-    '  2. Kies \'Toevoegen aan beginscherm\'',
-    '',
-    '--- REGISTREREN ---',
-    '',
-    '1. Open de app via bovenstaande link',
-    '2. Klik op \'Registreer hier\'',
-    '3. Vul je naam, e-mailadres en wachtwoord in',
-    '4. Wacht op goedkeuring van je di\u00ebtiste',
-    '',
-    'Heb je vragen? Neem contact op met '+adminName+'.',
-    '',
-    'Met vriendelijke groeten,',
-    adminName,
-    'Be Fit Marke'
-  );
-  var body=encodeURIComponent(lines.join('\r\n'));
-  window.open('mailto:'+email+'?subject='+subject+'&body='+body,'_blank');
-  showToast('\u2713 E-mailclient geopend');
-  hideInviteModal();
+async function requestNotifPermission(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default'){
+    // Show a friendly explanation first
+    setTimeout(function(){
+      if(Notification.permission==='default'){
+        Notification.requestPermission().then(function(p){
+          if(p==='granted'){
+            // Send a welcome notification immediately so user sees it works
+            localNotif('Be Fit Marke ✅','Meldingen ingeschakeld! Je krijgt een seintje als het tijd is voor een tussendoortje.','welcome');
+          }
+        });
+      }
+    }, 3000);
+  }
 }
+
 setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
 function getWeights(email){return DB.get('weights:'+(email||S.user.email))||[];}
 function saveWeight(dateStr,kg){var list=getWeights(S.user.email);var idx=list.findIndex(function(w){return w.date===dateStr;});if(idx>=0){list[idx].kg=kg;}else{list.push({date:dateStr,kg:kg});}list.sort(function(a,b){return a.date.localeCompare(b.date);});DB.set('weights:'+S.user.email,list);showToast('\u2713 Gewicht opgeslagen');render();}
