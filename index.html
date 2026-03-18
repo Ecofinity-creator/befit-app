@@ -2312,6 +2312,12 @@ function sendInvite(){
   hideInviteModal();
 }
 
+function getMealAnalyseKey(email,dateStr,meal){return 'analyse:'+email+':'+dateStr+':'+meal;}
+function mealAlreadyAnalysed(email,dateStr,meal){return DB.get(getMealAnalyseKey(email,dateStr,meal))!==null;}
+function getApiKey(){return DB.get('anthropic:apikey')||'';}
+function localNotif(title,body,tag){if(Notification.permission!=='granted')return;try{navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});});}catch(e){}}
+function getExtraAdmins(){return DB.get('extra:admins')||[];}
+
 function render(){
   var app=document.getElementById('app');
 
