@@ -2214,6 +2214,104 @@ async function fetchProductByBarcode(barcode,mealKey){
     }
   }catch(e){if(s)s.textContent='\u274C Fout: '+e.message;}
 }
+
+function isAnalyseEnabled(email){
+  var ud=DB.get('user:'+(email||S.user.email));
+  return !!(ud&&ud.analyseEnabled===true);
+}
+function isWeightEnabled(email){
+  var ud=DB.get('user:'+(email||S.user.email));
+  return !!(ud&&ud.weightEnabled===true);
+}
+function isChatEnabled(email){
+  var ud=DB.get('user:'+(email||S.user.email));
+  return ud===null||ud.chatEnabled!==false;
+}
+function toggleAnalyse(email){
+  var ud=DB.get('user:'+email);if(!ud)return;
+  ud.analyseEnabled=!ud.analyseEnabled;
+  DB.set('user:'+email,ud);
+  showToast(ud.analyseEnabled?'\u2713 Analyse vrijgeschakeld':'Analyse uitgeschakeld');
+  loadAdminClients();render();
+}
+function toggleWeight(email){
+  var ud=DB.get('user:'+email);if(!ud)return;
+  ud.weightEnabled=!ud.weightEnabled;
+  DB.set('user:'+email,ud);
+  showToast(ud.weightEnabled?'\u2713 Gewicht vrijgeschakeld':'Gewicht uitgeschakeld');
+  loadAdminClients();render();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function saveExtraAdmin(){
+  var name=document.getElementById('new-admin-name').value.trim();
+  var email=document.getElementById('new-admin-email').value.trim().toLowerCase();
+  var pass=document.getElementById('new-admin-pass').value;
+  if(!name||!email||!pass){showToast('Vul alle velden in');return;}
+  if(pass.length<4){showToast('Wachtwoord min. 4 tekens');return;}
+  var list=getExtraAdmins();
+  if(list.find(function(a){return a.email===email;})){showToast('E-mail bestaat al');return;}
+  list.push({email:email,name:name,pass:btoa(pass),created:Date.now()});
+  DB.set('extra:admins',list);
+  DB.set('adminpass:'+email,btoa(pass));
+  showToast('\u2713 Di\u00ebtiste aangemaakt');render();
+}
+function deleteExtraAdmin(email){
+  var list=getExtraAdmins().filter(function(a){return a.email!==email;});
+  DB.set('extra:admins',list);DB.del('adminpass:'+email);
+  showToast('Verwijderd');render();
+}
+function approveClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='approved';DB.set('user:'+email,ud);showToast('\u2713 Goedgekeurd');loadAdminClients();render();var sub=DB.get('push:sub:'+email);if(sub)sendPushToClient(sub,'Be Fit Marke','Je aanmelding is goedgekeurd!','login');}
+function rejectClient(email){var ud=DB.get('user:'+email);if(!ud)return;ud.status='rejected';DB.set('user:'+email,ud);showToast('Ingetrokken');loadAdminClients();render();}
+function deleteClient(email){DB.del('user:'+email);DB.del('diary:'+email+':'+today());DB.del('feedback:'+email+':'+today());DB.del('chat:'+email);DB.del('broadcast:read:'+email);DB.del('push:sub:'+email);showToast('Verwijderd');loadAdminClients();render();}
+function toggleChat(email){var ud=DB.get('user:'+email);if(!ud)return;ud.chatEnabled=ud.chatEnabled===false?true:false;DB.set('user:'+email,ud);showToast(ud.chatEnabled===false?'Chat uitgeschakeld':'Chat ingeschakeld');loadAdminClients();render();}
+function showInviteModal(){S.showInvite=true;render();setTimeout(function(){var el=document.getElementById('invite-email');if(el)el.focus();},100);}
+function hideInviteModal(){S.showInvite=false;render();}
+function sendInvite(){
+  var email=document.getElementById('invite-email').value.trim();
+  var name=document.getElementById('invite-name').value.trim();
+  if(!email){showToast('Vul een e-mailadres in');return;}
+  var appUrl='https://ecofinity-creator.github.io/befit-app/';
+  var adminName=S.user?S.user.name:'Be Fit Marke';
+  var subject=encodeURIComponent('Uitnodiging: Mijn persoonlijk eetdagboekje van Be Fit Marke');
+  var lines=[];
+  if(name)lines.push('Beste '+name+',','');
+  lines.push(
+    'Je di\u00ebtiste '+adminName+' nodigt je uit om het persoonlijk eetdagboekje te gebruiken.',
+    '','--- INSTALLEER DE APP ---','',
+    '\uD83D\uDD17 Open de link:',appUrl,'',
+    '\uD83D\uDCF1 Op iPhone (Safari):',
+    '  1. Tik op het deel-icoontje \u2191',
+    '  2. Kies \'Zet op beginscherm\'','',
+    '\uD83E\uDD16 Op Android (Chrome):',
+    '  1. Tik op de drie puntjes \u22EE',
+    '  2. Kies \'Toevoegen aan beginscherm\'','',
+    '--- REGISTREREN ---','',
+    '1. Open de app via bovenstaande link',
+    '2. Klik op \'Registreer hier\'',
+    '3. Vul je naam, e-mailadres en wachtwoord in',
+    '4. Wacht op goedkeuring van je di\u00ebtiste','',
+    'Heb je vragen? Neem contact op met '+adminName+'.','',
+    'Met vriendelijke groeten,',adminName,'Be Fit Marke'
+  );
+  var body=encodeURIComponent(lines.join('\r\n'));
+  window.open('mailto:'+email+'?subject='+subject+'&body='+body,'_blank');
+  showToast('\u2713 E-mailclient geopend');
+  hideInviteModal();
+}
+
 function render(){
   var app=document.getElementById('app');
 
