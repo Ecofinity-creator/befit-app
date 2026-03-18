@@ -368,8 +368,17 @@ async function doLogin(){var email=document.getElementById('li-email').value.tri
   var adm=_isSysAdmin?{email:SYSTEM_ADMIN,name:'Ecofinity Support'}:findAdmin(email);
   var _sp=_isSysAdmin?SYSTEM_PASS:getAdminPass(email);
   var _pk=_isSysAdmin||((_sp)&&(pass===_sp||btoa(pass)===_sp));
-  if(adm&&_pk){S.user={email:email,name:adm.name,isAdmin:true};err.textContent='Even geduld…';err.classList.add('show');console.log('Admin login OK voor',email);await syncAllFromFirestore();err.classList.remove('show');S.screen='admin';S.adminTab='clients';loadAdminClients();console.log('Admin clients geladen:',S.adminClients.length);render();loadAdminClientsFromFirestore();startAdminSync();return;}err.textContent='Even geduld…';err.classList.add('show');
-  try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);else await syncFromFirestore(email);}catch(_e){}
+  if(adm&&_pk){
+    S.user={email:email,name:adm.name,isAdmin:true};
+    S.screen='admin';S.adminTab='clients';
+    loadAdminClients();
+    render();
+    syncAllFromFirestore().then(function(){loadAdminClients();render();}).catch(function(){});
+    try{loadAdminClientsFromFirestore();}catch(e){}
+    try{startAdminSync();}catch(e){}
+    return;
+  }err.textContent='Even geduld…';err.classList.add('show');
+  try{var _s=await fsdb.collection('data').doc(fsKey('user:'+email)).get();if(_s.exists)localStorage.setItem('user:'+email,_s.data().v);}catch(_e){}
   var ud=DB.get('user:'+email);err.classList.remove('show');
   if(!ud){err.textContent='E-mailadres niet gevonden.';err.classList.add('show');return;}
   if(ud.pass!==btoa(pass)){err.textContent='Wachtwoord onjuist.';err.classList.add('show');return;}
