@@ -1,35 +1,28 @@
-const CACHE_NAME = 'befit-v1774163554';
-const URLS_TO_CACHE = ['./', './index.html'];
+// BE FIT SW v1774170367 - NUCLEAR CACHE CLEAR
+const CACHE_NAME = 'befit-1774170367';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(URLS_TO_CACHE);
-    })
-  );
 });
 
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
-      return Promise.all(keys.filter(function(k) { return k !== CACHE_NAME; }).map(function(k) { return caches.delete(k); }));
+      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
     }).then(function() { return self.clients.claim(); })
   );
 });
 
 self.addEventListener('fetch', function(e) {
-  if(e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(function(r) {
-      return r || fetch(e.request).then(function(resp) {
-        if(!resp || resp.status !== 200) return resp;
-        var rc = resp.clone();
-        caches.open(CACHE_NAME).then(function(cache) { cache.put(e.request, rc); });
-        return resp;
-      });
-    })
-  );
+  // Never cache - always fetch fresh
+  if(e.request.method === 'GET' && e.request.url.includes('befit-app')) {
+    e.respondWith(
+      fetch(e.request, {cache: 'no-store'}).catch(function() {
+        return caches.match(e.request);
+      })
+    );
+    return;
+  }
 });
 
 self.addEventListener('push', function(e) {

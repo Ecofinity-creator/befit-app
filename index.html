@@ -642,7 +642,7 @@ function mealBlock(k){
       +'</div></div>'
     :'';
 
-  +'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">\uD83D\uDCC5</button><button onclick="openBarcodeScanner(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#1E3D20;color:#F0EAD6;font-size:17px;cursor:pointer;flex-shrink:0;" title="Scan barcode">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
+  +favHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">\uD83D\uDCC5</button><button onclick="openBarcodeScanner(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#1E3D20;color:#F0EAD6;font-size:17px;cursor:pointer;flex-shrink:0;" title="Scan barcode">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
 
@@ -882,37 +882,25 @@ if(S.adminTab==='week'){
 
 function getComplianceScore(email){
   var filled=0;
-  var d=new Date();
   for(var i=0;i<7;i++){
-    d.setDate(d.getDate()-(i===0?0:1));
-    if(i>0){/* already stepped */}
-    var ds;
-    if(i===0){
-      var t=new Date();
-      ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
-    }else{
-      var t2=new Date();t2.setDate(t2.getDate()-i);
-      ds=t2.getFullYear()+'-'+String(t2.getMonth()+1).padStart(2,'0')+'-'+String(t2.getDate()).padStart(2,'0');
-    }
+    var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     var diary=DB.get('diary:'+email+':'+ds);
     if(diary){
       var meals=diary.meals||{};
-      var hasEntry=(meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length);
-      if(hasEntry)filled++;
+      if((meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length))filled++;
     }
   }
   return Math.round(filled/7*100);
 }
 function getDaysInactive(email){
-  var d=new Date();
   for(var i=0;i<14;i++){
-    var t=new Date();t.setDate(t.getDate()-i);
-    var ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     var diary=DB.get('diary:'+email+':'+ds);
     if(diary){
       var meals=diary.meals||{};
-      var hasEntry=(meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length);
-      if(hasEntry)return i;
+      if((meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length))return i;
     }
   }
   return 14;
@@ -1071,7 +1059,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774169719').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774170303').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
