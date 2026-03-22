@@ -1,4 +1,4 @@
-const CACHE_NAME = 'befit-v1774161690';
+const CACHE_NAME = 'befit-v1774163554';
 const URLS_TO_CACHE = ['./', './index.html'];
 
 self.addEventListener('install', function(e) {

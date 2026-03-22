@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD:1774162171 -->
+<!-- BUILD:1774163554 -->
 <!-- v1774161671 -->
 <html lang="nl">
 <head>
@@ -915,7 +915,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774161671').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774163554').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -1052,7 +1052,8 @@ function analyseBlock(){
     :'';
 
   if(!allItems.length){
-    return weekCard+'<div class="card">'+navBar
+    return weekCard+'<div class="card" style="margin-bottom:12px;">'+'<div class="card-head"><div class="card-icon-box">&#x1F4F7;</div><span class="card-title">Barcode scannen</span></div>'+'<div style="padding:16px;text-align:center;">'+'<div style="font-size:12px;color:#5A7A5C;margin-bottom:12px;">Scan een barcode om een product toe te voegen aan je maaltijd.</div>'+'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">'+'<button onclick="openBarcodeScanner(\'morning\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'+'<button onclick="openBarcodeScanner(\'lunch\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'+'<button onclick="openBarcodeScanner(\'evening\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'+'</div></div></div>'
+    +'<div class="card">'+navBar
       +'<div style="text-align:center;padding:32px 16px;">'
       +'<div style="font-size:40px;margin-bottom:12px;">&#x1F966;</div>'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Geen maaltijden ingegeven</div>'
