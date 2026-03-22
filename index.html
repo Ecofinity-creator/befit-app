@@ -1059,7 +1059,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774173036').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774173321').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -2113,8 +2113,7 @@ function closeBarcodeScanner(){
   if(_barcodeStream){_barcodeStream.getTracks().forEach(function(t){t.stop();});_barcodeStream=null;}
   var el=document.getElementById('barcode-modal');if(el)el.remove();
 }
-async 
-function openMealCamera(k){
+async function openMealCamera(k){
   var inp=document.createElement('input');
   inp.type='file';
   inp.accept='image/*';
