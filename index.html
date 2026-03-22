@@ -915,7 +915,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774165002').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774166889').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -2193,6 +2193,219 @@ async function _showStandaloneResult(barcode){
     if(btn)btn.style.display='inline-block';
   }catch(e){if(s)s.textContent='\u274C Fout: '+e.message;if(btn)btn.style.display='inline-block';}
 }
+function getTopItems(meal,n){
+  var counts={};
+  DB.keys().filter(function(k){return k.startsWith('diary:'+S.user.email+':');}).forEach(function(k){
+    var d=DB.get(k);if(!d||!d.meals||!d.meals[meal])return;
+    d.meals[meal].forEach(function(it){counts[it.t]=(counts[it.t]||0)+1;});
+  });
+  return Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).slice(0,n||5);
+}
+
+function analyseMealBlock(k){
+  if(!isAnalyseEnabled||!isAnalyseEnabled()) return '';
+  var selDate=getMealDate(),result=DB.get(getMealAnalyseKey(S.user.email,selDate,k));
+  var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'},mealColors={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
+  var ms=S.meals[k]||[];if(!ms.length) return '';
+  var btnHtml=S.analyseLoading===k?'<button disabled style="width:100%;background:#ccc;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;">&#x23F3; Analyseren...</button>':result?'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F504; Opnieuw analyseren</button>':'<button onclick="runMealAnalyse(\''+k+'\')" style="width:100%;background:'+mealColors[k]+';color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F9EA; Analyseer '+mealNames[k]+'</button>';
+  var rHtml='';
+  if(result){var macros=[{l:'Kcal',v:result.kcal,u:'kcal',col:'#C9A84C'},{l:'Eiwitten',v:result.proteinen,u:'g',col:'#2A6030'},{l:'Koolh.',v:result.koolhydraten,u:'g',col:'#3A8FBD'},{l:'Vetten',v:result.vetten,u:'g',col:'#C0392B'},{l:'Vezels',v:result.vezels,u:'g',col:'#4A8E7B'},{l:'Suikers',v:result.suikers,u:'g',col:'#E67E22'}];var mg=macros.map(function(m){return '<div style="text-align:center;padding:7px 3px;background:#FDFAF5;border-radius:8px;border:1px solid #EAE2D0;"><div style="font-size:13px;font-weight:800;color:'+m.col+';">'+m.v+'</div><div style="font-size:9px;color:#9E9580;">'+m.u+'</div><div style="font-size:8px;font-weight:700;color:#5A7A5C;text-transform:uppercase;">'+m.l+'</div></div>';}).join('');var sc=result.score>=8?'#2A6030':result.score>=5?'#C9A84C':'#C0392B';rHtml='<div style="margin-top:10px;padding-top:10px;border-top:1px solid #EAE2D0;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="text-align:center;background:#F0F7F2;border-radius:10px;padding:8px 12px;"><div style="font-size:22px;font-weight:800;color:'+sc+';">'+result.score+'</div><div style="font-size:9px;color:#5A7A5C;">/10</div></div><div style="flex:1;font-size:12px;color:#5A7A5C;font-style:italic;">'+result.scoreUitleg+'</div></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'+mg+'</div>'+(result.tips&&result.tips.length?'<div style="background:#FFFBEF;border-radius:8px;padding:10px;"><div style="font-size:10px;font-weight:700;color:#856404;text-transform:uppercase;margin-bottom:6px;">&#x1F4A1; Tips</div>'+result.tips.map(function(t){return '<div style="font-size:11px;color:#5A5020;padding:3px 0;border-bottom:1px solid #F5EED5;">&#x2022; '+t+'</div>';}).join('')+'</div>':'')+'</div>';}
+  return '<div class="card" style="border-left:3px solid '+mealColors[k]+';background:#FAFFF9;"><div class="card-head"><div class="card-icon-box">&#x1F9EA;</div><span class="card-title">Voedingsanalyse AI</span></div>'+btnHtml+rHtml+'</div>';
+}
+function buildAdminDateNav(email,ad){
+  if(!ad) return '';
+  var isToday=ad===today();
+  var dObj=new Date(ad+'T00:00:00');
+  var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+  var prevDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
+  var nextDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
+  return '<div style="display:flex;align-items:center;gap:6px;background:#F0F7F2;border-radius:8px;padding:6px 10px;margin-bottom:10px;">'
+    +'<button onclick="event.stopPropagation();setAdminDate(\''+email+'\',\''+prevDate+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276E;</button>'
+    +'<div style="flex:1;text-align:center;"><div style="font-size:11px;font-weight:700;color:#1E3D20;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#2A6030;font-weight:700;">Vandaag</div>':'')+' </div>'
+    +(isToday?'<button disabled style="background:#ccc;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276F;</button>':'<button onclick="event.stopPropagation();setAdminDate(\''+email+'\',\''+nextDate+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276F;</button>')
+    +'</div>';
+}
+function changeAdminPassword(){
+  var old=document.getElementById('chpw-old').value;
+  var n1=document.getElementById('chpw-new1').value;
+  var n2=document.getElementById('chpw-new2').value;
+  var err=document.getElementById('chpw-err');
+  err.style.display='none';
+  var currentPass=getAdminPass(S.user.email);
+  if(old!==currentPass&&btoa(old)!==currentPass){err.textContent='Huidig wachtwoord klopt niet.';err.style.display='block';return;}
+  if(n1.length<6){err.textContent='Nieuw wachtwoord moet min. 6 tekens zijn.';err.style.display='block';return;}
+  if(n1!==n2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}
+  DB.set('adminpass:'+S.user.email,n1);
+  showToast('\u2713 Wachtwoord gewijzigd');
+  document.getElementById('chpw-old').value='';
+  document.getElementById('chpw-new1').value='';
+  document.getElementById('chpw-new2').value='';
+}
+function deleteMeasurement(dateStr){
+  var list=getMeasurements(S.user.email).filter(function(m){return m.date!==dateStr;});
+  DB.set('measurements:'+S.user.email,list);
+  showToast('Meting verwijderd');render();
+}
+function generateWeekReport(){
+  var lines=[],totalKcal=0,totalWater=0,totalMov=0,days=0;
+  for(var i=6;i>=0;i--){
+    var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var diary=DB.get('diary:'+S.user.email+':'+ds);
+    if(!diary)continue;
+    days++;
+    totalWater+=diary.water||0;
+    var acts=(diary.activities||[]).reduce(function(s,a){return s+a.dur;},0);
+    totalMov+=acts;
+    var dayKcal=0;
+    ['morning','lunch','evening'].forEach(function(k){
+      var anl=DB.get(getMealAnalyseKey(S.user.email,ds,k));
+      if(anl&&anl.kcal)dayKcal+=anl.kcal;
+    });
+    totalKcal+=dayKcal;
+    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+    var mealCount=['morning','lunch','evening'].reduce(function(s,k){return s+(diary.meals&&diary.meals[k]?diary.meals[k].length:0);},0);
+    lines.push(dLabel+': '+mealCount+' maaltijditems, '+Math.round(diary.water||0)+' gl water'+(acts?' , '+acts+' min beweging':'')+(dayKcal?' , '+dayKcal+' kcal':''));
+  }
+  var goals=getGoals(S.user.email);
+  var avgKcal=days?Math.round(totalKcal/days):0;
+  var avgWater=days?Math.round(totalWater/days*10)/10:0;
+  var avgMov=days?Math.round(totalMov/days):0;
+  var body='Beste '+S.user.name+',%0D%0A%0D%0AHier is je weekoverzicht van Be Fit Marke:%0D%0A%0D%0A';
+  body+='GEMIDDELDEN DEZE WEEK%0D%0A';
+  if(avgKcal)body+='\uD83D\uDD25 Calorieën: '+avgKcal+' kcal/dag'+(goals.kcal?' (doel: '+goals.kcal+')':'')+'%0D%0A';
+  body+='\uD83D\uDCA7 Water: '+avgWater+' glazen/dag'+(goals.water?' (doel: '+goals.water+')':'')+'%0D%0A';
+  body+='\uD83C\uDFC3 Beweging: '+avgMov+' min/dag'+(goals.movement?' (doel: '+goals.movement+')':'')+'%0D%0A%0D%0A';
+  body+='DAGDETAILS%0D%0A'+lines.join('%0D%0A')+'%0D%0A%0D%0A';
+  body+='Ga zo door! Tot volgende week.%0D%0ABe Fit Marke';
+  var subject=encodeURIComponent('Jouw weekoverzicht Be Fit Marke');
+  window.open('mailto:'+S.user.email+'?subject='+subject+'&body='+body,'_blank');
+  showToast('\u2713 E-mailclient geopend');
+}
+function getAdminDate(email){return (S.adminDates&&S.adminDates[email])||today();}
+function getGoals(email){
+  var defaults={kcal:1800,water:8,movement:30,weight:null,note:''};
+  return Object.assign({},defaults,DB.get('goals:'+(email||S.user.email))||{});
+}
+function getMeasurements(email){return DB.get('measurements:'+(email||S.user.email))||[];}
+function resetUserAccess(){
+  var email=(document.getElementById('reset-email').value||'').trim().toLowerCase();
+  var pass=document.getElementById('reset-pass').value;
+  if(!email||!pass){showToast('\u274C Vul e-mail en wachtwoord in');return;}
+  if(pass.length<6){showToast('\u274C Min. 6 tekens');return;}
+  // Try admin first
+  var isAdmin=!!findAdmin(email);
+  if(isAdmin){
+    DB.set('adminpass:'+email,pass);
+    showToast('\u2713 Admin wachtwoord gereset voor '+email);
+    return;
+  }
+  // Try client
+  var ud=DB.get('user:'+email);
+  if(ud){
+    ud.pass=btoa(pass);
+    DB.set('user:'+email,ud);
+    showToast('\u2713 Klant wachtwoord gereset voor '+email);
+    return;
+  }
+  // Not found locally - try Firestore
+  fsdb.collection('data').doc(fsKey('user:'+email)).get().then(function(snap){
+    if(snap.exists){
+      var ud2=JSON.parse(snap.data().v);
+      ud2.pass=btoa(pass);
+      DB.set('user:'+email,ud2);
+      showToast('\u2713 Wachtwoord gereset voor '+email);
+    } else {
+      showToast('\u274C Gebruiker niet gevonden: '+email);
+    }
+  }).catch(function(){showToast('\u274C Fout bij opzoeken');});
+}
+async function runMealAnalyse(meal){
+  if(!getApiKey()){showToast('Geen API-sleutel. Stel in via Instellingen.');return;}
+  var selDate=getMealDate(),items=(S.meals[meal]||[]);
+  if(!items.length){showToast('Geen items in deze maaltijd');return;}
+  var mealNames={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'},mealName=mealNames[meal];
+  S.analyseLoading=meal;render();
+  try{
+    var prompt='Analyseer deze '+mealName+':\n\n'+items.map(function(i){return '- '+i.t;}).join('\n')+'\n\nAntwoord ENKEL in dit JSON-formaat:\n{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"uitleg","tips":["tip1","tip2"]}';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':getApiKey()},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,system:'Je bent een voedingsdeskundige assistent. Antwoord in het Nederlands en enkel in het gevraagde JSON-formaat.',messages:[{role:'user',content:prompt}]})});
+    var data=await resp.json();
+    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=null;render();return;}
+    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=null;render();return;}
+    var text=data.content[0].text.replace(/```json|```/g,'').trim();
+    var jm=text.match(/\{[\s\S]*\}/);if(!jm){showToast('Onleesbaar antwoord');S.analyseLoading=null;render();return;}
+    var result=JSON.parse(jm[0]);result.meal=meal;result.mealName=mealName;result.ts=Date.now();result.byClient=S.user.name;
+    DB.set(getMealAnalyseKey(S.user.email,selDate,meal),result);
+    // Also save combined daily analyse for easy admin access
+    var _allAnl={};
+    ['morning','lunch','evening'].forEach(function(_k){
+      var _r=DB.get(getMealAnalyseKey(S.user.email,selDate,_k));
+      if(_r)_allAnl[_k]=_r;
+    });
+    _allAnl[meal]=result;
+    DB.set('analyse_day:'+S.user.email+':'+selDate,_allAnl);
+  }catch(err){showToast('Analyse mislukt: '+(err.message||'fout'));}
+  S.analyseLoading=null;render();
+}
+function saveGoalsAdmin(email,i){
+  var kcal=parseInt(document.getElementById('goal-kcal-'+i).value)||0;
+  var water=parseInt(document.getElementById('goal-water-'+i).value)||0;
+  var mov=parseInt(document.getElementById('goal-mov-'+i).value)||0;
+  var wt=parseFloat(document.getElementById('goal-wt-'+i).value)||null;
+  var note=document.getElementById('goal-note-'+i).value.trim();
+  saveGoals(email,{kcal:kcal,water:water,movement:mov,weight:wt,note:note});
+}
+function saveMeasurement(dateStr,vals){
+  var list=getMeasurements(S.user.email);
+  var idx=list.findIndex(function(m){return m.date===dateStr;});
+  if(idx>=0)Object.assign(list[idx],vals,{date:dateStr});
+  else list.push(Object.assign({date:dateStr},vals));
+  list.sort(function(a,b){return a.date.localeCompare(b.date);});
+  DB.set('measurements:'+S.user.email,list);
+  showToast('\u2713 Maten opgeslagen');render();
+}
+function startAdminSync(){
+  if(_adminListener)_adminListener();
+  // Listen for any new user registrations in Firestore
+  _adminListener=fsdb.collection('data')
+    .orderBy('t','desc').limit(20)
+    .onSnapshot(function(snap){
+      var hasNewUser=false;
+      snap.docChanges().forEach(function(change){
+        if(change.type==='added'||change.type==='modified'){
+          var key=fromFsKey(change.doc.id);
+          if(key.startsWith('user:')&&change.doc.data().v){
+            localStorage.setItem(key,change.doc.data().v);
+            hasNewUser=true;
+          }
+        }
+      });
+      if(hasNewUser&&S.screen==='admin'){loadAdminClients();render();}
+    },function(){});
+}
+function stopAdminSync(){if(_adminListener){_adminListener();_adminListener=null;}}
+function wellbeingBlock(){
+  var wb=getWellbeing(S.user.email,getMealDate());
+  function stars(field,label,color,icon){
+    var current=wb[field]||0;
+    var dots=[1,2,3,4,5].map(function(n){
+      return '<span onclick="saveWellbeing(\''+field+'\','+n+')" style="font-size:28px;cursor:pointer;opacity:'+(n<=current?'1':'0.25')+';transition:opacity .1s;">'+icon+'</span>';
+    }).join('');
+    return '<div style="margin-bottom:14px;">'
+      +'<div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">'+label+'</div>'
+      +'<div style="display:flex;gap:4px;align-items:center;">'+dots
+      +(current?'<span style="font-size:12px;font-weight:700;color:'+color+';margin-left:8px;">'+current+'/5</span>':'')
+      +'</div></div>';
+  }
+  return '<div class="card">'
+    +'<div class="card-head"><div class="card-icon-box">&#x1F31F;</div><span class="card-title">Hoe voel ik me vandaag?</span></div>'
+    +stars('hunger','Hongergevoel','#C9A84C','&#x1F35E;')
+    +stars('energy','Energieniveau','#2A6030','&#x26A1;')
+    +stars('mood','Stemming','#3A8FBD','&#x1F60A;')
+    +'<div style="font-size:10px;color:#9E9580;text-align:center;font-style:italic;">Je di\u00ebtiste kan deze scores meevolgen</div>'
+    +'</div>';
+}
+
 function render(){
   var app=document.getElementById('app');
 
