@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD:1774163554 -->
+<!-- BUILD:1774163887 -->
 <!-- v1774161671 -->
 <html lang="nl">
 <head>
@@ -191,7 +191,7 @@ body.dark .admin-client-card{background:#1a2a1c;}
   .txt-in, .field-in { font-size: 14px; padding: 12px 16px; }
   .app-header { padding: 14px 24px; }
   .diary-title-bar { padding: 8px 20px; }
-  .nav { justify-content: center; }
+  .nav { justify-content: flex-start; }
   .nav-item { min-width: 64px; }
 }
 
@@ -915,7 +915,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774163554').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774163887').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
