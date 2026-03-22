@@ -1,59 +1,47 @@
-const CACHE_NAME = 'befit-v1773782260';
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json'
-];
+const CACHE_NAME = 'befit-v1774161690';
+const URLS_TO_CACHE = ['./', './index.html'];
 
-// Install: cache core assets
 self.addEventListener('install', function(e) {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(ASSETS);
+      return cache.addAll(URLS_TO_CACHE);
     })
   );
 });
 
-// Activate: delete old caches
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(key) { return key !== CACHE_NAME; })
-            .map(function(key) { return caches.delete(key); })
-      );
-    }).then(function() {
-      return self.clients.claim();
-    })
+      return Promise.all(keys.filter(function(k) { return k !== CACHE_NAME; }).map(function(k) { return caches.delete(k); }));
+    }).then(function() { return self.clients.claim(); })
   );
 });
 
-// Fetch: network first, fallback to cache
 self.addEventListener('fetch', function(e) {
-  // Skip non-GET and cross-origin requests
-  if (e.request.method !== 'GET') return;
-  if (!e.request.url.startsWith(self.location.origin)) return;
-
+  if(e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request).then(function(response) {
-      // Cache fresh copy of HTML
-      if (response.ok) {
-        var clone = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(e.request, clone);
-        });
-      }
-      return response;
-    }).catch(function() {
-      // Offline fallback
-      return caches.match(e.request);
+    caches.match(e.request).then(function(r) {
+      return r || fetch(e.request).then(function(resp) {
+        if(!resp || resp.status !== 200) return resp;
+        var rc = resp.clone();
+        caches.open(CACHE_NAME).then(function(cache) { cache.put(e.request, rc); });
+        return resp;
+      });
     })
   );
 });
 
-// Handle SKIP_WAITING message from the app
+self.addEventListener('push', function(e) {
+  var data = e.data ? e.data.json() : {};
+  e.waitUntil(self.registration.showNotification(data.title || 'Be Fit', {
+    body: data.body || '',
+    icon: 'icon-192.png',
+    tag: data.tag || 'befit',
+    vibrate: [200, 100, 200, 100, 400]
+  }));
+});
+
 self.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if(e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
