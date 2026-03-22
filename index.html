@@ -371,7 +371,7 @@ function startDiarySync(email){
 }
 
 
-var S={screen:'login',adminDates:{},user:null,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
+var S={screen:'login',adminDates:{},user:null,showGroupMsg:false,groupMsgSelected:[],tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -569,6 +569,46 @@ function chatFmtTime(ts){var d=new Date(ts);return d.getDate()+'/'+(d.getMonth()
 function sendChatMsg(){var inp=document.getElementById('chat-inp'),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(S.user.email);msgs.push({from:'client',name:S.user.name,text:txt,ts:Date.now()});saveChat(S.user.email,msgs);inp.value='';render();setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);}
 function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);if(typeof sendPushToClient==='function'){var csub=DB.get('push:sub:'+email);if(csub)sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');}inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
 
+
+function copyYesterday(k){
+  var d=new Date(getMealDate()+'T00:00:00');
+  d.setDate(d.getDate()-1);
+  var yd=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var ydiary=DB.get('diary:'+S.user.email+':'+yd);
+  if(!ydiary||!ydiary.meals||!ydiary.meals[k]||!ydiary.meals[k].length){
+    showToast('Geen maaltijd van gisteren gevonden');return;
+  }
+  var yesterday=ydiary.meals[k];
+  if(!S.meals[k]) S.meals[k]=[];
+  yesterday.forEach(function(item){
+    S.meals[k].push({t:item.t,ts:Date.now()});
+  });
+  saveUserData();render();
+  showToast('\u2713 '+yesterday.length+' item'+(yesterday.length===1?'':'s')+' gekopieerd van gisteren');
+}
+
+function getFavorites(){return DB.get('favorites:'+S.user.email)||[];}
+function addToFavorites(text){
+  if(!text||!text.trim())return;
+  var favs=getFavorites();
+  text=text.trim();
+  if(favs.find(function(f){return f===text;})){showToast('Al in favorieten');return;}
+  favs.unshift(text);
+  if(favs.length>20)favs=favs.slice(0,20);
+  DB.set('favorites:'+S.user.email,favs);
+  showToast('\u2665 Toegevoegd aan favorieten');
+}
+function removeFromFavorites(text){
+  var favs=getFavorites().filter(function(f){return f!==text;});
+  DB.set('favorites:'+S.user.email,favs);
+  render();
+}
+function addFavToMeal(k,text){
+  if(!S.meals[k])S.meals[k]=[];
+  S.meals[k].push({t:text,ts:Date.now()});
+  saveUserData();render();
+  showToast('\u2713 Toegevoegd aan '+(['morning','lunch','evening'].indexOf(k)>=0?['Ontbijt','Middag','Avond'][['morning','lunch','evening'].indexOf(k)]:'maaltijd'));
+}
 function mealBlock(k){
   var c=CFG[k],ms=S.meals[k],sn=S.snacks[k],hasTmr=!!S.timers[k];
   var sec=S.cds[k],h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
@@ -590,12 +630,61 @@ function mealBlock(k){
       +tops.map(function(t){return '<button onclick="document.getElementById(\'meal-in-'+k+'\').value=\''+t.replace(/\'/g,'').replace(/"/g,'')+'\'" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:16px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:Lato,sans-serif;white-space:nowrap;">'+t+'</button>';}).join('')
       +'</div>':'';
     return btns;
-  })()+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="openBarcodeScanner(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#1E3D20;color:#F0EAD6;font-size:17px;cursor:pointer;flex-shrink:0;" title="Scan barcode">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
+  })()
+  var favs=getFavorites();
+  var favHtml=favs.length
+    ?'<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">\u2665 Favorieten</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +favs.map(function(f){return '<span style="background:#FFF8EE;border:1px solid #C9A84C;border-radius:20px;padding:4px 10px;font-size:11px;color:#1E3D20;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">'
+        +'<span onclick="addFavToMeal(\''+k+'\',\''+f.replace(/'/g,'\\\'')+'\')">'+f+'</span>'
+        +'<span onclick="removeFromFavorites(\''+f.replace(/'/g,'\\\'')+'\')" style="color:#C0392B;font-size:10px;">\u00D7</span>'
+        +'</span>';}).join('')
+      +'</div></div>'
+    :'';
+
+  +'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">\uD83D\uDCC5</button><button onclick="openBarcodeScanner(\\\'\'+k+\'\\\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#1E3D20;color:#F0EAD6;font-size:17px;cursor:pointer;flex-shrink:0;" title="Scan barcode">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
+
+function getWaterStreak(){
+  var streak=0;
+  var d=new Date();
+  for(var i=1;i<=30;i++){
+    d.setDate(d.getDate()-1);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var diary=DB.get('diary:'+S.user.email+':'+ds);
+    var goal=DB.get('wgoal:'+S.user.email)||8;
+    if(diary&&(diary.water||0)>=goal) streak++;
+    else break;
+  }
+  // Check today
+  if(S.water>=(S.wgoal||8)) streak++;
+  return streak;
+}
 function waterBlock(){
   var w=S.water,g=S.wgoal,pct=Math.min(100,Math.round(w/g*100)),liter=(w*0.25).toFixed(2).replace(/\.?0+$/,'');
   var msg=w===0?'Vergeet niet te drinken vandaag!':w<4?'Goed bezig! Nog '+Math.max(0,(g-w)).toFixed(1).replace(/\.0$/,'')+' glazen.':w<g?'Bijna! Nog '+Math.max(0,(g-w)).toFixed(1).replace(/\.0$/,'')+' glas.':'\uD83C\uDF89 Dagdoel bereikt!';
+  var wstreak=getWaterStreak();
+  var streakHtml=wstreak>0
+    ?'<div style="display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#1E3D20,#2A6030);border-radius:12px;padding:10px 16px;margin-bottom:12px;">'
+      +'<span style="font-size:24px;">\uD83D\uDD25</span>'
+      +'<div><div style="color:#C9A84C;font-weight:700;font-size:15px;">'+wstreak+' dag'+( wstreak===1?'':'en')+' streak!</div>'
+      +'<div style="color:#A8D4B8;font-size:10px;">Elke dag je waterdoel halen</div></div>'
+      +'</div>'
+    :'';
+  var glasses='';for(var i=0;i<g;i++){var fp=Math.min(100,Math.max(0,Math.round((w-i)*100)));glasses+='<div class="glass-wrap" onclick="setWater('+(w>i+0.5?i+0.5:i+1)+')"><div class="glass"><div class="glass-fill" style="height:'+fp+'%"></div></div><div class="glass-lbl">'+(i+1)+'</div></div>';}
+  return '<div class="card"><div class="water-head">\uD83D\uDCA7 Waterinname</div><div class="water-sub">Doel: '+g+' glazen / 2 liter per dag</div><div style="display:flex;gap:10px;margin-bottom:16px;align-items:flex-end"><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px">Glazen</div><div style="display:flex;align-items:center;gap:6px"><button onclick="setWater(Math.max(0,Math.round((S.water-1)*10)/10))" style="width:34px;height:38px;border:1px solid #DDD4C0;border-radius:8px;background:#FDFAF5;font-size:18px;cursor:pointer;color:#1E3D20;font-weight:700;">&minus;</button><input type="number" min="0" max="20" step="0.5" value="'+w+'" style="width:100%;border:1px solid #DDD4C0;border-radius:8px;padding:8px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;" oninput="S.water=Math.max(0,parseFloat(this.value)||0);saveUserData();var li=document.getElementById(\'liter-in\');if(li)li.value=(S.water*0.25).toFixed(2).replace(/\.?0+$/,\'\');var pb=document.getElementById(\'pct-bar\');if(pb)pb.style.width=Math.min(100,Math.round(S.water/S.wgoal*100)+\'%\')" onblur="setWater(this.value)"/><button onclick="setWater(Math.round((S.water+1)*10)/10)" style="width:34px;height:38px;border:1px solid #DDD4C0;border-radius:8px;background:#FDFAF5;font-size:18px;cursor:pointer;color:#1E3D20;font-weight:700;">+</button></div></div><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#3A8FBD;letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px">Of in liter</div><div style="display:flex;align-items:center;gap:6px"><input type="number" id="liter-in" min="0" max="5" step="0.1" value="'+liter+'" style="width:100%;border:1px solid #93C5E4;border-radius:8px;padding:8px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#3A8FBD;background:#EEF7FD;outline:none;text-align:center;" oninput="S.water=Math.max(0,Math.round((parseFloat(this.value)||0)/0.25*10)/10);saveUserData();var pb=document.getElementById(\'pct-bar\');if(pb)pb.style.width=Math.min(100,Math.round(S.water/S.wgoal*100))+\'%\'" onblur="setWater(Math.round((parseFloat(this.value)||0)/0.25*10)/10)"/><span style="font-size:13px;color:#3A8FBD;font-weight:700;flex-shrink:0">L</span></div></div></div><div class="glass-row">'+glasses+'</div><div class="water-progress"><div class="water-bar" id="pct-bar" style="width:'+pct+'%"></div></div><div class="water-num" id="water-num-txt">'+w+' glazen &middot; '+liter+'L</div><div class="water-msg" id="water-msg-txt">'+msg+'</div></div>';
+}+streakHtml+function waterBlock(){
+  var w=S.water,g=S.wgoal,pct=Math.min(100,Math.round(w/g*100)),liter=(w*0.25).toFixed(2).replace(/\.?0+$/,'');
+  var msg=w===0?'Vergeet niet te drinken vandaag!':w<4?'Goed bezig! Nog '+Math.max(0,(g-w)).toFixed(1).replace(/\.0$/,'')+' glazen.':w<g?'Bijna! Nog '+Math.max(0,(g-w)).toFixed(1).replace(/\.0$/,'')+' glas.':'\uD83C\uDF89 Dagdoel bereikt!';
+  var wstreak=getWaterStreak();
+  var streakHtml=wstreak>0
+    ?'<div style="display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#1E3D20,#2A6030);border-radius:12px;padding:10px 16px;margin-bottom:12px;">'
+      +'<span style="font-size:24px;">\uD83D\uDD25</span>'
+      +'<div><div style="color:#C9A84C;font-weight:700;font-size:15px;">'+wstreak+' dag'+( wstreak===1?'':'en')+' streak!</div>'
+      +'<div style="color:#A8D4B8;font-size:10px;">Elke dag je waterdoel halen</div></div>'
+      +'</div>'
+    :'';
   var glasses='';for(var i=0;i<g;i++){var fp=Math.min(100,Math.max(0,Math.round((w-i)*100)));glasses+='<div class="glass-wrap" onclick="setWater('+(w>i+0.5?i+0.5:i+1)+')"><div class="glass"><div class="glass-fill" style="height:'+fp+'%"></div></div><div class="glass-lbl">'+(i+1)+'</div></div>';}
   return '<div class="card"><div class="water-head">\uD83D\uDCA7 Waterinname</div><div class="water-sub">Doel: '+g+' glazen / 2 liter per dag</div><div style="display:flex;gap:10px;margin-bottom:16px;align-items:flex-end"><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#5A7A5C;letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px">Glazen</div><div style="display:flex;align-items:center;gap:6px"><button onclick="setWater(Math.max(0,Math.round((S.water-1)*10)/10))" style="width:34px;height:38px;border:1px solid #DDD4C0;border-radius:8px;background:#FDFAF5;font-size:18px;cursor:pointer;color:#1E3D20;font-weight:700;">&minus;</button><input type="number" min="0" max="20" step="0.5" value="'+w+'" style="width:100%;border:1px solid #DDD4C0;border-radius:8px;padding:8px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;text-align:center;" oninput="S.water=Math.max(0,parseFloat(this.value)||0);saveUserData();var li=document.getElementById(\'liter-in\');if(li)li.value=(S.water*0.25).toFixed(2).replace(/\.?0+$/,\'\');var pb=document.getElementById(\'pct-bar\');if(pb)pb.style.width=Math.min(100,Math.round(S.water/S.wgoal*100)+\'%\')" onblur="setWater(this.value)"/><button onclick="setWater(Math.round((S.water+1)*10)/10)" style="width:34px;height:38px;border:1px solid #DDD4C0;border-radius:8px;background:#FDFAF5;font-size:18px;cursor:pointer;color:#1E3D20;font-weight:700;">+</button></div></div><div style="flex:1"><div style="font-size:10px;font-weight:700;color:#3A8FBD;letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px">Of in liter</div><div style="display:flex;align-items:center;gap:6px"><input type="number" id="liter-in" min="0" max="5" step="0.1" value="'+liter+'" style="width:100%;border:1px solid #93C5E4;border-radius:8px;padding:8px;font-size:16px;font-weight:700;font-family:Lato,sans-serif;color:#3A8FBD;background:#EEF7FD;outline:none;text-align:center;" oninput="S.water=Math.max(0,Math.round((parseFloat(this.value)||0)/0.25*10)/10);saveUserData();var pb=document.getElementById(\'pct-bar\');if(pb)pb.style.width=Math.min(100,Math.round(S.water/S.wgoal*100))+\'%\'" onblur="setWater(Math.round((parseFloat(this.value)||0)/0.25*10)/10)"/><span style="font-size:13px;color:#3A8FBD;font-weight:700;flex-shrink:0">L</span></div></div></div><div class="glass-row">'+glasses+'</div><div class="water-progress"><div class="water-bar" id="pct-bar" style="width:'+pct+'%"></div></div><div class="water-num" id="water-num-txt">'+w+' glazen &middot; '+liter+'L</div><div class="water-msg" id="water-msg-txt">'+msg+'</div></div>';
 }
@@ -666,7 +755,7 @@ function renderAdminBroadcasts(){
 
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
-      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week','qr'].includes(S.adminTab)){
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
@@ -802,6 +891,44 @@ if(S.adminTab==='week'){
   }
 
 }
+
+function getComplianceScore(email){
+  var filled=0;
+  var d=new Date();
+  for(var i=0;i<7;i++){
+    d.setDate(d.getDate()-(i===0?0:1));
+    if(i>0){/* already stepped */}
+    var ds;
+    if(i===0){
+      var t=new Date();
+      ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    }else{
+      var t2=new Date();t2.setDate(t2.getDate()-i);
+      ds=t2.getFullYear()+'-'+String(t2.getMonth()+1).padStart(2,'0')+'-'+String(t2.getDate()).padStart(2,'0');
+    }
+    var diary=DB.get('diary:'+email+':'+ds);
+    if(diary){
+      var meals=diary.meals||{};
+      var hasEntry=(meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length);
+      if(hasEntry)filled++;
+    }
+  }
+  return Math.round(filled/7*100);
+}
+function getDaysInactive(email){
+  var d=new Date();
+  for(var i=0;i<14;i++){
+    var t=new Date();t.setDate(t.getDate()-i);
+    var ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    var diary=DB.get('diary:'+email+':'+ds);
+    if(diary){
+      var meals=diary.meals||{};
+      var hasEntry=(meals.morning&&meals.morning.length)||(meals.lunch&&meals.lunch.length)||(meals.evening&&meals.evening.length);
+      if(hasEntry)return i;
+    }
+  }
+  return 14;
+}
 function renderAdminClient(c,i){
   var d=c.diary,fb=loadFeedback(c.email,today());
   var hasFb=fb&&(fb.morning||fb.lunch||fb.evening);
@@ -823,6 +950,15 @@ function renderAdminClient(c,i){
   var vidOn=isVideoEnabled(c.email);
   var anlOn=isAnalyseEnabled(c.email);
   var sBadge=status==='pending'?'<span style="font-size:10px;background:#FFF3CD;color:#856404;border:1px solid #FECB02;border-radius:10px;padding:2px 8px;font-weight:700;">&#x23F3; In afwachting</span>':status==='rejected'?'<span style="font-size:10px;background:#FFECEC;color:#C0392B;border:1px solid #FFCDD0;border-radius:10px;padding:2px 8px;font-weight:700;">&#x274C; Geannuleerd</span>':'<span style="font-size:10px;background:#E8F4EE;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:2px 8px;font-weight:700;">&#x2713; Goedgekeurd</span>';
+  var _comp=getComplianceScore(c.email);
+  var _inactive=getDaysInactive(c.email);
+  var _compColor=_comp>=80?'#2A6030':_comp>=50?'#C9A84C':'#C0392B';
+  var _inactiveBadge=_inactive>=3&&status==='approved'
+    ?'<span style="background:#C0392B;color:#fff;border-radius:20px;padding:2px 8px;font-size:9px;font-weight:700;margin-left:4px;">\uD83D\uDED1 '+_inactive+'d inactief</span>'
+    :'';
+  var _compBadge=status==='approved'
+    ?'<span style="background:'+_compColor+';color:#fff;border-radius:20px;padding:2px 8px;font-size:9px;font-weight:700;margin-left:4px;">'+_comp+'% actief</span>'
+    :'';
   var hasData=_aDate===today()?(d&&(Object.values(d.meals||{}).some(function(m){return m.length>0;})||d.water>0)):_dHasData;
   var det='';
   // Analyse results
@@ -907,7 +1043,7 @@ function renderAdminClient(c,i){
     ?'<div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
     :'<div style="margin-top:8px;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
   return '<div class="admin-client-card" onclick="S.adminOpen=S.adminOpen==='+i+'?null:'+i+';if(S.adminOpen)fetchClientAnalyse(S.adminOpen);else render()">'
-    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+_inactiveBadge+_compBadge+'</div>'
     +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
     +(status==='approved'
       ?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
@@ -947,7 +1083,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774169094').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774169719').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -2578,6 +2714,72 @@ async function _restartBarcodeAnalyse(){
     }
   }catch(e){var s=document.getElementById('barcode-status');if(s)s.textContent='\u274C Camera fout: '+e.message;}
 }
+
+function showGroupMessageModal(){
+  S.showGroupMsg=true;
+  S.groupMsgSelected=S.adminClients.filter(function(cl){return cl.status==='approved';}).map(function(cl){return cl.email;});
+  render();
+  setTimeout(function(){var el=document.getElementById('group-msg-text');if(el)el.focus();},100);
+}
+function hideGroupMessageModal(){S.showGroupMsg=false;render();}
+function toggleGroupClient(email){
+  var idx=S.groupMsgSelected.indexOf(email);
+  if(idx>=0)S.groupMsgSelected.splice(idx,1);
+  else S.groupMsgSelected.push(email);
+  var el=document.getElementById('group-client-'+email.replace(/[@.]/g,'_'));
+  if(el)el.style.background=S.groupMsgSelected.indexOf(email)>=0?'#1E3D20':'#FDFAF5';
+}
+function selectAllGroupClients(){
+  S.groupMsgSelected=S.adminClients.filter(function(cl){return cl.status==='approved';}).map(function(cl){return cl.email;});
+  render();
+}
+function deselectAllGroupClients(){S.groupMsgSelected=[];render();}
+function sendGroupMessage(){
+  var msgEl=document.getElementById('group-msg-text');
+  var msg=msgEl?msgEl.value.trim():'';
+  if(!msg){showToast('Vul een bericht in');return;}
+  if(!S.groupMsgSelected||!S.groupMsgSelected.length){showToast('Selecteer minstens 1 klant');return;}
+  var sender=S.user?S.user.name:'Di\u00ebtiste';
+  var sent=0;
+  S.groupMsgSelected.forEach(function(email){
+    var chat=DB.get('chat:'+email)||{msgs:[]};
+    chat.msgs=chat.msgs||[];
+    chat.msgs.push({from:sender,text:msg,ts:Date.now(),fromAdmin:true});
+    DB.set('chat:'+email,chat);
+    var sub=DB.get('push:sub:'+email);
+    if(sub&&typeof sendPushToClient==='function')
+      sendPushToClient(sub,'Be Fit Marke \uD83D\uDCAC',sender+': '+msg,'chat');
+    sent++;
+  });
+  showToast('\u2713 Bericht verstuurd naar '+sent+' klant'+(sent===1?'':'en'));
+  hideGroupMessageModal();
+}
+function renderGroupMessageModal(){
+  if(!S.showGroupMsg)return '';
+  var approved=S.adminClients.filter(function(cl){return cl.status==='approved';});
+  var sel=S.groupMsgSelected||[];
+  var clientList=approved.map(function(cl){
+    var isSelected=sel.indexOf(cl.email)>=0;
+    return '<div id="group-client-'+cl.email.replace(/[@.]/g,'_')+'" onclick="toggleGroupClient(\''+cl.email+'\')" '
+      +'style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;'
+      +'background:'+(isSelected?'#1E3D20':'#FDFAF5')+';color:'+(isSelected?'#F0EAD6':'#1E3D20')+';'
+      +'border:1px solid '+(isSelected?'#1E3D20':'#DDD4C0')+';transition:all .15s;">'+cl.name+'</div>';
+  }).join('');
+  return '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9800;display:flex;align-items:flex-end;justify-content:center;">'
+    +'<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;">'
+    +'<div style="font-weight:700;font-size:15px;color:#1E3D20;margin-bottom:4px;">\uD83D\uDCE3 Groepsbericht</div>'
+    +'<div style="font-size:11px;color:#9E9580;margin-bottom:12px;">'+sel.length+' van '+approved.length+' klanten geselecteerd</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px;">'
+    +'<button onclick="selectAllGroupClients()" style="flex:1;background:#EAF4EE;color:#1E3D20;border:1px solid #4A8E7B;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;">Alles</button>'
+    +'<button onclick="deselectAllGroupClients()" style="flex:1;background:#FFF5F5;color:#C0392B;border:1px solid #C0392B;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;">Geen</button>'
+    +'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'+clientList+'</div>'
+    +'<textarea id="group-msg-text" rows="3" placeholder="Typ je bericht..." style="width:100%;border:1px solid #DDD4C0;border-radius:10px;padding:10px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;box-sizing:border-box;resize:none;outline:none;"></textarea>'
+    +'<div style="display:flex;gap:10px;margin-top:10px;">'
+    +'<button onclick="sendGroupMessage()" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Verstuur</button>'
+    +'<button onclick="hideGroupMessageModal()" style="background:#F0EAD6;color:#1E3D20;border:none;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Annuleer</button>'
+    +'</div></div></div>';
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -2589,6 +2791,7 @@ function render(){
       +'<button class="btn-primary" onclick="doLogin()">Inloggen</button>',
       '<div class="register-link" style="margin-top:6px;">Wachtwoord vergeten? <a onclick="S.screen=\'forgot\';render()">Klik hier</a></div>'
       +'<div class="register-link">Nog geen account? <a onclick="S.screen=\'register\';render()">Registreer hier</a></div>');
+  document.body.insertAdjacentHTML('beforeend',renderGroupMessageModal());
     return;
   }
 
@@ -2713,6 +2916,10 @@ function render(){
   // Incoming call banner
   if(S.incomingCall&&!_callActive){var _icb=document.createElement('div');_icb.innerHTML=incomingCallBanner();if(_icb.firstChild)document.body.appendChild(_icb.firstChild);}
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
+  // Group message modal
+  var _gm=document.getElementById('group-msg-modal');
+  if(_gm)_gm.remove();
+  if(S.showGroupMsg){var _gmDiv=document.createElement('div');_gmDiv.id='group-msg-modal';_gmDiv.innerHTML=renderGroupMessageModal();document.body.appendChild(_gmDiv);}
   // Onboarding overlay
   var _obDiv=document.getElementById('onboarding-overlay');
   if(_obDiv)_obDiv.remove();
