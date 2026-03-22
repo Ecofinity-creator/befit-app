@@ -621,7 +621,7 @@ function mealBlock(k){
   var fbHtml=mealFb
     ?'<div style="margin:10px 0 4px 0;background:#FDFAF5;border-left:3px solid '+dc+';border-radius:0 8px 8px 0;padding:10px 14px;"><div style="font-size:10px;font-weight:700;color:'+dc+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">\uD83D\uDCAC Feedback Be Fit</div><div style="font-size:12px;color:#2C3E28;line-height:1.7;font-style:italic;">&ldquo;'+mealFb+'&rdquo;</div><div style="font-size:10px;color:#9E9580;margin-top:5px;">'+(fb.adminName||'Di\u00ebtiste')+' &middot; '+fbDate+'</div></div>'
     :'';
-  var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
+  var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span onclick="addToFavorites(this.dataset.v)" data-v="'+x.t+'" style="cursor:pointer;font-size:13px;padding:2px 5px;color:#C9A84C;" title="Bewaar als favoriet">&#x2665;</span><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
   var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering volgt automatisch 2.5u na je eerste hap</span></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
   var snHtml=ms.length?'<div class="snack-card"><div class="snack-tag">\uD83C\uDF4E Tussendoortje na '+c.label.toLowerCase()+'</div>'+(sn.length?sn.map(function(x,i){return '<div class="logged-item" style="background:#FFFCF0"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" oninput="updateSnackTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delSnack(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog geen tussendoortje ingegeven</div>')+'<div class="input-row"><input type="time" class="add-time" id="snack-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="snack-in-'+k+'" placeholder="bv. appel, nootjes..." onkeydown="if(event.key===\'Enter\')addSnack(\''+k+'\')" /><button class="btn-g btn-gold" onclick="addSnack(\''+k+'\')">+</button></div></div>':'';
   var _favList=getFavorites();
@@ -642,7 +642,7 @@ function mealBlock(k){
       +tops.map(function(t){return '<button onclick="document.getElementById(\'meal-in-'+k+'\').value=\''+t.replace(/\'/g,'').replace(/"/g,'')+'\'" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:16px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:Lato,sans-serif;white-space:nowrap;">'+t+'</button>';}).join('')
       +'</div>':'';
     return btns;
-  })()+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">📅</button><button onclick="openBarcodeScanner(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#1E3D20;color:#F0EAD6;font-size:17px;cursor:pointer;flex-shrink:0;" title="Scan barcode">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
+  })()+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">📅</button><button onclick="openMealCamera(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#4A8E7B;color:#fff;font-size:17px;cursor:pointer;flex-shrink:0;" title="Foto maken — AI herkent je maaltijd">&#x1F4F8;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
 
@@ -1059,7 +1059,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 }
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774172515').then(function(reg){
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=1774173036').then(function(reg){
     reg.update();
     setInterval(function(){reg.update();},60000);
     reg.addEventListener('updatefound',function(){
@@ -2112,6 +2112,59 @@ var _barcodeStream=null;
 function closeBarcodeScanner(){
   if(_barcodeStream){_barcodeStream.getTracks().forEach(function(t){t.stop();});_barcodeStream=null;}
   var el=document.getElementById('barcode-modal');if(el)el.remove();
+}
+async 
+function openMealCamera(k){
+  var inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='image/*';
+  inp.capture='environment';
+  inp.style.display='none';
+  inp.onchange=function(){runMealPhotoAnalyse(k,this);};
+  document.body.appendChild(inp);
+  inp.click();
+  setTimeout(function(){document.body.removeChild(inp);},5000);
+}
+async function runMealPhotoAnalyse(k,input){
+  var file=input.files&&input.files[0];
+  if(!file)return;
+  var mealName={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'}[k]||k;
+  showToast('\uD83E\uDD16 Maaltijd analyseren...');
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var base64=e.target.result.split(',')[1];
+    var mediaType=file.type||'image/jpeg';
+    try{
+      var apiKey=getApiKey();
+      if(!apiKey){showToast('\u274C Stel eerst je API-sleutel in bij Profiel');return;}
+      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',max_tokens:600,
+          system:'Je bent een voedingsdeskundige. Analyseer de foto van een maaltijd en geef een JSON-lijst van de voedingsmiddelen. Antwoord ENKEL in dit JSON-formaat: {"items":["voedingsmiddel 1","voedingsmiddel 2"]}. Wees beknopt en praktisch.',
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+            {type:'text',text:'Wat zie je op deze foto? Geef een lijst van de voedingsmiddelen als JSON.'}
+          ]}]
+        })
+      });
+      var data=await resp.json();
+      var txt=data.content&&data.content[0]&&data.content[0].text||'';
+      var clean=txt.replace(/```json|```/g,'').trim();
+      var parsed=JSON.parse(clean);
+      var items=parsed.items||[];
+      if(!items.length){showToast('\u274C Geen voeding herkend op de foto');return;}
+      if(!S.meals[k])S.meals[k]=[];
+      items.forEach(function(item){S.meals[k].push({t:item,ts:Date.now()});});
+      saveUserData();render();
+      showToast('\u2713 '+items.length+' item'+(items.length===1?'':'s')+' toegevoegd aan '+mealName);
+    }catch(err){
+      showToast('\u274C Analyse mislukt: '+err.message);
+    }
+  };
+  reader.readAsDataURL(file);
 }
 async function openBarcodeScanner(mealKey){
   var modal=document.createElement('div');
