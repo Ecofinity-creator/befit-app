@@ -1019,7 +1019,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774253127',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774253550',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2795,14 +2795,38 @@ function cleanPasswordManagerInjections(){
     }catch(e){}
   });
 }
+function addMeal(k){var inp=document.getElementById('meal-in-'+k),tInp=document.getElementById('meal-time-'+k),v=(inp.value||'').trim();if(!v)return;S.meals[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();if(!S.timers[k]&&getMealDate()===today())startTimer(k);render();}
+function delMeal(k,i){S.meals[k].splice(i,1);saveUserData();render();}
+function updateMealTime(k,i,val){S.meals[k][i].timeStr=val;saveUserData();}
+function addSnack(k){var inp=document.getElementById('snack-in-'+k),tInp=document.getElementById('snack-time-'+k),v=(inp.value||'').trim();if(!v)return;S.snacks[k].push({t:v,timeStr:tInp?tInp.value:nowHHMM()});inp.value='';saveUserData();render();}
+function delSnack(k,i){S.snacks[k].splice(i,1);saveUserData();render();}
+function updateSnackTime(k,i,val){S.snacks[k][i].timeStr=val;saveUserData();}
+function addReminder(){var desc=document.getElementById('rem-desc'),time=document.getElementById('rem-time'),v=(desc.value||'').trim();if(!v)return;S.reminders.push({time:time.value,desc:v});desc.value='';saveUserData();render();}
+function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
+function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
+function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
+function saveFeedbackMeal(email,date,meal,text){var key='feedback:'+email+':'+date,ex=DB.get(key)||{};ex[meal]=text;ex.ts=Date.now();ex.adminName=S.user?S.user.name:'';DB.set(key,ex);// Push notification to client
+  var sub=DB.get('push:sub:'+email);
+  if(sub&&typeof sendPushToClient==='function'){
+    var mealLabel=meal==='morning'?'ontbijt':meal==='lunch'?'middagmaal':'avondmaal';
+    sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke','Je di\u00ebtiste heeft feedback gegeven op je '+mealLabel+'!','feedback');
+  }}
+function chatFmtTime(ts){var d=new Date(ts);return d.getDate()+'/'+(d.getMonth()+1)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function deleteBroadcast(id){saveBroadcasts(getBroadcasts().filter(function(m){return m.id!==id;}));showToast('Bericht verwijderd');render();}
+function markBroadcastsRead(email){DB.set('broadcast:read:'+email,getBroadcasts().map(function(m){return m.id;}));}
+function postBroadcast(){var tEl=document.getElementById('bc-title'),txEl=document.getElementById('bc-text'),cEl=document.getElementById('bc-cat'),title=(tEl.value||'').trim(),text=(txEl.value||'').trim(),cat=cEl?cEl.value:'\uD83D\uDCA1';if(!text){showToast('\u274C Vul een bericht in');return;}var msgs=getBroadcasts();msgs.unshift({id:Date.now().toString(),from:S.user.name,title:title,text:text,cat:cat,ts:Date.now()});saveBroadcasts(msgs);tEl.value='';txEl.value='';if(typeof DB!=='undefined'){DB.keys().filter(function(k){return k.startsWith('push:sub:');}).forEach(function(k){var sub=DB.get(k);if(sub&&typeof sendPushToClient==='function')sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke','Nieuw bericht','broadcast');});}showToast('\u2713 Bericht verstuurd');render();}
+function saveBroadcasts(msgs){DB.set('broadcast:messages',msgs);}
+function saveChat(email,msgs){DB.set(chatKey(email),msgs);}
+function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);if(typeof sendPushToClient==='function'){var csub=DB.get('push:sub:'+email);if(csub)sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');}inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
+function sendChatMsg(){var inp=document.getElementById('chat-inp'),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(S.user.email);msgs.push({from:'client',name:S.user.name,text:txt,ts:Date.now()});saveChat(S.user.email,msgs);inp.value='';render();setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);}
 function render(){
   var app=document.getElementById('app');
 
   if(S.screen==='login'){
     app.innerHTML=loginScreen('main','Log in met je e-mailadres waarmee je gekend bent bij Be Fit Marke.',
       '<div class="err-box" id="li-err"></div>'
-      +'<label class="field-lbl">E-mailadres</label><input class="field-in" id="li-email" type="email" autocomplete="username" data-lpignore="true" data-form-type="other" placeholder="jouw@email.be" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
-      +'<label class="field-lbl">Wachtwoord</label><input class="field-in" id="li-pass" type="password" autocomplete="current-password" data-lpignore="true" data-form-type="other" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
+      +'<label class="field-lbl">E-mailadres</label><input class="field-in" id="li-email" type="email" autocomplete="username" data-lpignore="true" data-form-type="other" autocomplete="username" data-lpignore="true" data-form-type="other" placeholder="jouw@email.be" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
+      +'<label class="field-lbl">Wachtwoord</label><input class="field-in" id="li-pass" type="password" autocomplete="current-password" data-lpignore="true" data-form-type="other" autocomplete="current-password" data-lpignore="true" data-form-type="other" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
       +'<button class="btn-primary" onclick="doLogin()">Inloggen</button>',
       '<div class="register-link" style="margin-top:6px;">Wachtwoord vergeten? <a onclick="S.screen=\'forgot\';render()">Klik hier</a></div>'
       +'<div class="register-link">Nog geen account? <a onclick="S.screen=\'register\';render()">Registreer hier</a></div>');
