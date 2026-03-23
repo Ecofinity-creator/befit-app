@@ -536,6 +536,13 @@ function logout(){
   if(typeof _adminListener!=='undefined'&&_adminListener)try{_adminListener();}catch(e){}
   S.user=null;
   S.screen='login';
+  S.showGroupMsg=false;
+  S.groupMsgSelected=[];
+  // Remove any leftover modals
+  ['group-msg-modal','barcode-modal','onboarding-overlay'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el&&el.parentNode)el.parentNode.removeChild(el);
+  });
   render();
 }
 
@@ -1012,7 +1019,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774251144',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774251945',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2737,7 +2744,7 @@ function sendGroupMessage(){
   hideGroupMessageModal();
 }
 function renderGroupMessageModal(){
-  if(!S.showGroupMsg)return '';
+  if(!S.showGroupMsg||!S.user||S.screen!=='admin')return '';
   var approved=S.adminClients.filter(function(cl){return cl.status==='approved';});
   var sel=S.groupMsgSelected||[];
   var clientList=approved.map(function(cl){
@@ -2779,7 +2786,6 @@ function render(){
       +'<button class="btn-primary" onclick="doLogin()">Inloggen</button>',
       '<div class="register-link" style="margin-top:6px;">Wachtwoord vergeten? <a onclick="S.screen=\'forgot\';render()">Klik hier</a></div>'
       +'<div class="register-link">Nog geen account? <a onclick="S.screen=\'register\';render()">Registreer hier</a></div>');
-  document.body.insertAdjacentHTML('beforeend',renderGroupMessageModal());
     return;
   }
 
@@ -2904,10 +2910,10 @@ function render(){
   // Incoming call banner
   if(S.incomingCall&&!_callActive){var _icb=document.createElement('div');_icb.innerHTML=incomingCallBanner();if(_icb.firstChild)document.body.appendChild(_icb.firstChild);}
   setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);
-  // Group message modal
+  // Group message modal - only for logged in admins
   var _gm=document.getElementById('group-msg-modal');
   if(_gm&&_gm.parentNode)_gm.parentNode.removeChild(_gm);
-  if(S.showGroupMsg){var _gmDiv=document.createElement('div');_gmDiv.id='group-msg-modal';_gmDiv.innerHTML=renderGroupMessageModal();document.body.appendChild(_gmDiv);}
+  if(S.showGroupMsg&&S.user&&S.screen==='admin'){var _gmDiv=document.createElement('div');_gmDiv.id='group-msg-modal';_gmDiv.innerHTML=renderGroupMessageModal();document.body.appendChild(_gmDiv);}
   // Onboarding overlay
   var _obDiv=document.getElementById('onboarding-overlay');
   if(_obDiv&&_obDiv.parentNode)_obDiv.parentNode.removeChild(_obDiv);
