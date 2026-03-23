@@ -1019,7 +1019,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774252773',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774253127',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2776,14 +2776,33 @@ function unreadBroadcastCount(email){var read=getReadIds(email);return getBroadc
 function getReadIds(email){return DB.get('broadcast:read:'+email)||[];}
 function getBroadcasts(){return DB.get('broadcast:messages')||[];}
 function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
+
+function cleanPasswordManagerInjections(){
+  // Remove injected password manager buttons/icons from login form
+  var selectors = [
+    'input[id*="li-pass"] + *',
+    '[data-lastpass-icon-root]',
+    '[data-dashlane-rid]', 
+    '[data-1p-ignore]',
+    'div[id*="lp_"]',
+    '[class*="__lpform"]'
+  ];
+  selectors.forEach(function(sel){
+    try{
+      document.querySelectorAll(sel).forEach(function(el){
+        if(el&&el.parentNode)el.parentNode.removeChild(el);
+      });
+    }catch(e){}
+  });
+}
 function render(){
   var app=document.getElementById('app');
 
   if(S.screen==='login'){
     app.innerHTML=loginScreen('main','Log in met je e-mailadres waarmee je gekend bent bij Be Fit Marke.',
       '<div class="err-box" id="li-err"></div>'
-      +'<label class="field-lbl">E-mailadres</label><input class="field-in" id="li-email" type="email" placeholder="jouw@email.be" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
-      +'<label class="field-lbl">Wachtwoord</label><input class="field-in" id="li-pass" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
+      +'<label class="field-lbl">E-mailadres</label><input class="field-in" id="li-email" type="email" autocomplete="username" data-lpignore="true" data-form-type="other" placeholder="jouw@email.be" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
+      +'<label class="field-lbl">Wachtwoord</label><input class="field-in" id="li-pass" type="password" autocomplete="current-password" data-lpignore="true" data-form-type="other" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" onkeydown="if(event.key===\'Enter\')doLogin()"/>'
       +'<button class="btn-primary" onclick="doLogin()">Inloggen</button>',
       '<div class="register-link" style="margin-top:6px;">Wachtwoord vergeten? <a onclick="S.screen=\'forgot\';render()">Klik hier</a></div>'
       +'<div class="register-link">Nog geen account? <a onclick="S.screen=\'register\';render()">Registreer hier</a></div>');
