@@ -604,6 +604,7 @@ function mealBlock(k){
       +'</div>':'';
     return btns;
   })()+favHtml+'<div class="input-row"><input type="time" class="add-time" id="meal-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="meal-in-'+k+'" placeholder="'+c.ph+'" onkeydown="if(event.key===\'Enter\')addMeal(\''+k+'\')" /><button class="btn-g" onclick="addMeal(\''+k+'\')">+</button><button onclick="copyYesterday(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#2A6030;color:#F0EAD6;font-size:14px;cursor:pointer;flex-shrink:0;" title="Kopieer van gisteren">📅</button><button onclick="openBarcodeScanner(\''+k+'\')" style="width:38px;height:38px;border:none;border-radius:9px;background:#4A8E7B;color:#fff;font-size:17px;cursor:pointer;flex-shrink:0;" title="Barcode scannen">&#x1F4F7;</button></div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
++'<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">'+'<input type="time" style="width:80px;border:1px solid #DDD4C0;border-radius:9px;padding:8px 6px;font-size:13px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;flex-shrink:0;" id="meal-time-\'+k+\'" value="\'+nowHHMM()+\'" onfocus="this.value=nowHHMM()"/>'+'<input class="txt-in" style="flex:1;min-width:0;" id="meal-in-\'+k+\'" placeholder="\'+c.ph+\'" onkeydown="if(event.key===\\\'Enter\\\')addMeal(\\\'\'+k+\'\\\')" />'+'<button class="btn-g" onclick="addMeal(\\\'\'+k+\'\\\')" style="flex-shrink:0;">+</button>'+'</div>'+'<div style="display:flex;gap:6px;margin-bottom:8px;">'+'<button onclick="openBarcodeScanner(\\\'\'+k+\'\\\')" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">&#x1F4F7; Scannen</button>'+'<button onclick="copyYesterday(\\\'\'+k+\'\\\')" style="flex:1;background:#2A6030;color:#F0EAD6;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">&#x1F4C5; Gisteren</button>'+'</div>'+tHtml+'</div>'+snHtml+activityBlock()+analyseMealBlock(k);
 }
 
 
@@ -1022,7 +1023,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774260676',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774265788',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
