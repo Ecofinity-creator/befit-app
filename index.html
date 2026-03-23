@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD:1774167134 -->
+<!-- BUILD:1774251144 -->
 <!-- v1774161671 -->
 <html lang="nl">
 <head>
@@ -1012,10 +1012,21 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774182161').then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774251144',{updateViaCache:'none'}).then(function(reg){
     reg.update();
-  }).catch(function(){});
-  navigator.serviceWorker.addEventListener('controllerchange',function(){window.location.reload();});
+    if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
+    reg.addEventListener('updatefound',function(){
+      var nw=reg.installing;
+      nw.addEventListener('statechange',function(){
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          nw.postMessage({type:'SKIP_WAITING'});
+        }
+      });
+    });
+  }).catch(function(e){console.warn('SW:',e);});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    window.location.reload();
+  });
 }
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
