@@ -11,8 +11,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Be Fit Marke</title>
 <!-- Verdify v2.0 build=1773748495 -->
-<link rel="manifest" href="manifest.json"/>
+<link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkJlIEZpdCBNYXJrZSIsCiAgInNob3J0X25hbWUiOiAiQmUgRml0IiwKICAiZGVzY3JpcHRpb24iOiAiTWlqbiBwZXJzb29ubGlqayBlZXRkYWdib2VramUiLAogICJzdGFydF91cmwiOiAiL2JlZml0LWFwcC8iLAogICJzY29wZSI6ICIvYmVmaXQtYXBwLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0IiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMUUzRDIwIiwKICAidGhlbWVfY29sb3IiOiAiIzFFM0QyMCIsCiAgImxhbmciOiAibmwiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJpY29uLTE5Mi5wbmciLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0sCiAgICB7CiAgICAgICJzcmMiOiAiaWNvbi01MTIucG5nIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9CiAgXSwKICAiY2F0ZWdvcmllcyI6IFsKICAgICJoZWFsdGgiLAogICAgImxpZmVzdHlsZSIKICBdLAogICJwcmVmZXJfcmVsYXRlZF9hcHBsaWNhdGlvbnMiOiBmYWxzZQp9"/>
 <meta name="theme-color" content="#1E3D20"/>
+<meta name="application-name" content="Be Fit Marke"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -1019,7 +1020,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774301110',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774301456',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
