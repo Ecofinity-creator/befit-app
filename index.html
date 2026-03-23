@@ -382,7 +382,7 @@ function showToast(msg){msg=msg||'\u2713 Opgeslagen';var t=document.getElementBy
 function closeNotif(){document.getElementById('notif-bar').style.display='none';}
 function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');}
 
-function saveUserData(){if(!S.user)return;DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
+function saveUserData(){if(!S.user)return;saveSession();DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
 function loadUserData(){
   if(!S.user)return;
   var targetDate = S.mealDate || today();
@@ -476,7 +476,7 @@ function doLogin(){
     S.snacks={morning:[],lunch:[],evening:[]};
     S.water=0;S.reminders=[];
     loadUserData();S.screen='app';
-    startReminderCheck();render();requestNotifPermission();
+    saveSession();startReminderCheck();render();requestNotifPermission();setTimeout(startStepCounting,1500);
     syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
     startDiarySync(email);
   }
@@ -1019,7 +1019,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774272220',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774276190',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1039,21 +1039,40 @@ function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
 async function requestNotifPermission(){
   if(!('Notification' in window))return;
+  if(Notification.permission==='granted'){
+    // Already granted - ensure we have push subscription
+    if(S.user&&!DB.get('push:sub:'+S.user.email)){
+      subscribePush().then(function(sub){
+        if(sub&&S.user){
+          var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
+          fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email:S.user.email,subscription:sub})
+          }).catch(function(){});
+        }
+      });
+    }
+    return;
+  }
   if(Notification.permission==='default'){
-    // Show a friendly explanation first
     setTimeout(function(){
-      if(Notification.permission==='default'){
-        Notification.requestPermission().then(function(p){
-          if(p==='granted'){
-            // Send a welcome notification immediately so user sees it works
-            localNotif('Be Fit Marke ✅','Meldingen ingeschakeld! Je krijgt een seintje als het tijd is voor een tussendoortje.','welcome');
-          }
-        });
-      }
-    }, 3000);
+      if(Notification.permission!=='default')return;
+      Notification.requestPermission().then(function(p){
+        if(p==='granted'){
+          localNotif('Be Fit Marke ✅','Meldingen ingeschakeld!','welcome');
+          subscribePush().then(function(sub){
+            if(sub&&S.user){
+              DB.set('push:backend:url','https://befit-backend-3wkd.vercel.app');
+              var backendUrl='https://befit-backend-3wkd.vercel.app';
+              fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({email:S.user.email,subscription:sub})
+              }).catch(function(){});
+            }
+          });
+        }
+      });
+    },3000);
   }
 }
-
 setTimeout(function(){var extras=DB.get('extra:admins')||[];if(!extras.find(function(a){return a.email==='amber@be-fit.be';})){extras.push({email:'amber@be-fit.be',name:'Di\u00ebtiste Amber',pass:btoa('befit2024'),created:Date.now()});DB.set('extra:admins',extras);DB.set('adminpass:amber@be-fit.be',btoa('befit2024'));}},2000);
 function getWeights(email){return DB.get('weights:'+(email||S.user.email))||[];}
 function saveWeight(dateStr,kg){var list=getWeights(S.user.email);var idx=list.findIndex(function(w){return w.date===dateStr;});if(idx>=0){list[idx].kg=kg;}else{list.push({date:dateStr,kg:kg});}list.sort(function(a,b){return a.date.localeCompare(b.date);});DB.set('weights:'+S.user.email,list);showToast('\u2713 Gewicht opgeslagen');render();}
@@ -1679,27 +1698,36 @@ function progressPhotosBlock(){
 // ── STAPPENTELLER ─────────────────────────────────────────────
 var _stepCount=0,_stepListener=null,_lastAcc=0;
 function startStepCounting(){
-  if(_stepListener)return;
-  if(!window.DeviceMotionEvent){showToast('\u274C Stappenteller niet beschikbaar op dit toestel');return;}
+  if(_stepListener)return; // already running
+  if(!window.DeviceMotionEvent){
+    showToast('❌ Stappenteller niet beschikbaar op dit toestel');return;
+  }
   function go(){
-    var threshold=12,lastStep=0;
+    var threshold=10,lastStep=0;
     _stepListener=function(e){
       var acc=e.accelerationIncludingGravity;if(!acc)return;
-      var mag=Math.sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z),now=Date.now();
-      if(Math.abs(mag-_lastAcc)>threshold&&now-lastStep>300){
+      var mag=Math.sqrt((acc.x||0)*(acc.x||0)+(acc.y||0)*(acc.y||0)+(acc.z||0)*(acc.z||0));
+      var now=Date.now();
+      if(Math.abs(mag-_lastAcc)>threshold&&now-lastStep>250){
         _stepCount++;lastStep=now;
         var el=document.getElementById('step-count-display');
         if(el)el.textContent=_stepCount+' stappen';
-        DB.set('steps:'+S.user.email+':'+today(),_stepCount);
+        if(_stepCount%10===0)DB.set('steps:'+S.user.email+':'+today(),_stepCount);
       }
       _lastAcc=mag;
     };
-    window.addEventListener('devicemotion',_stepListener);
-    showToast('\uD83D\uDC5F Stappenteller gestart');render();
+    window.addEventListener('devicemotion',_stepListener,{passive:true});
   }
   if(typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission().then(function(r){if(r==='granted')go();else showToast('\u274C Toestemming geweigerd');}).catch(go);
-  }else go();
+    // iOS 13+: request permission
+    DeviceMotionEvent.requestPermission()
+      .then(function(r){if(r==='granted'){go();showToast('?? Stappenteller actief');}
+        else showToast('❌ Toestemming nodig voor stappenteller');})
+      .catch(function(){go();}); // Non-iOS: just go
+  } else {
+    go(); // Android / desktop
+    showToast('?? Stappenteller actief');
+  }
 }
 function stopStepCounting(){if(_stepListener){window.removeEventListener('devicemotion',_stepListener);_stepListener=null;}render();}
 function getTodaySteps(){return DB.get('steps:'+S.user.email+':'+today())||0;}
@@ -1725,6 +1753,14 @@ function updateOnlineStatus(){
   if(bar)bar.style.display=navigator.onLine?'none':'flex';
 }
 window.addEventListener('online',updateOnlineStatus);
+
+// Restart reminder check when app becomes visible (e.g. user returns to app)
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && S.user && S.screen === 'app'){
+    startReminderCheck();
+  }
+});
+
 window.addEventListener('offline',updateOnlineStatus);
 updateOnlineStatus();
 
@@ -2625,7 +2661,7 @@ function chatKey(email){return 'chat:'+email;}
 function unreadBroadcastCount(email){var read=getReadIds(email);return getBroadcasts().filter(function(m){return !read.includes(m.id);}).length;}
 function getReadIds(email){return DB.get('broadcast:read:'+email)||[];}
 function getBroadcasts(){return DB.get('broadcast:messages')||[];}
-function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
+function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(S.user){var _psub=DB.get('push:sub:'+S.user.email);if(_psub&&typeof sendPushToClient==='function')sendPushToClient(_psub,_title,_msg,'snack-'+k);}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 
 function cleanPasswordManagerInjections(){
   // Remove injected password manager buttons/icons from login form
@@ -2933,6 +2969,45 @@ function buildMealInput(k,ph){
     +'<button class="btn-g" style="flex-shrink:0;" onclick="addMeal(\''+k+'\')" >+</button>'
     +'</div>';
 }
+
+async function sendPushToClient(subscription, title, body, tag){
+  try{
+    var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
+    await fetch(backendUrl+'/api/send-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
+    });
+  }catch(e){console.warn('Push failed:',e.message);}
+}
+
+function saveSession(){
+  if(S.user) localStorage.setItem('befit_session', JSON.stringify({
+    user: S.user, tab: S.tab, mealDate: S.mealDate||null
+  }));
+}
+function restoreSession(){
+  try{
+    var sess = localStorage.getItem('befit_session');
+    if(sess){
+      var obj = JSON.parse(sess);
+      if(obj.user && obj.user.email){
+        S.user = obj.user;
+        S.tab = obj.tab || 'morning';
+        if(obj.mealDate) S.mealDate = obj.mealDate;
+        S.screen = 'app';
+        loadUserData();
+        startReminderCheck();
+        startDiarySync(S.user.email);
+        setTimeout(startStepCounting, 2000);
+        setTimeout(requestNotifPermission, 1000);
+        render();
+        return true;
+      }
+    }
+  }catch(e){}
+  return false;
+}
 function render(){
   var app=document.getElementById('app');
 
@@ -3078,7 +3153,7 @@ function render(){
   if(S.screen==='app'&&!isOnboardingDone()){var _ob=document.createElement('div');_ob.id='onboarding-overlay';_ob.innerHTML=onboardingOverlay();document.body.appendChild(_ob);}
 }
 
-render();
+if(!restoreSession())render();;
 </script>
 </body>
 </html+'<span onclick="editWeight(\\\'\'+w.date+\'\\\',\'+w.kg+\',\'+(w.fat||0)+\')" style="font-size:13px;cursor:pointer;padding:2px 6px;" title="Bewerken">&#x270F;&#xFE0F;</span>'>
