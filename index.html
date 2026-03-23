@@ -1022,7 +1022,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774257972',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774258322',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2709,19 +2709,45 @@ function _startZxingScan(onResult){
   var status=document.getElementById('bc-status');
   var video=document.getElementById('bc-video');
   if(!video){return;}
-
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false})
-  .then(function(stream){
+  var _scanStarted=false;
+  function doScan(){
+    if(_scanStarted)return;
+    _scanStarted=true;
+    _tryDecode(video,onResult);
+  }
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false
+  }).then(function(stream){
     _scanStream=stream;
     video.srcObject=stream;
     video.play();
     if(status)status.textContent='Richt de camera op de barcode...';
-    _tryDecode(video,onResult);
-  })
-  .catch(function(err){
-    if(status)status.textContent='\u274C Camera niet beschikbaar: '+err.message;
+    video.addEventListener('playing',doScan,{once:true});
+    video.addEventListener('loadeddata',doScan,{once:true});
+    setTimeout(doScan,2000);
+    // After 15s show manual input if still scanning
+    setTimeout(function(){
+      if(!document.getElementById('barcode-modal'))return;
+      var s2=document.getElementById('bc-status');
+      if(s2&&s2.textContent==='Richt de camera op de barcode...'){
+        _showManualInput(onResult,s2);
+      }
+    },15000);
+  }).catch(function(err){
+    if(status){status.innerHTML='<div style="margin-bottom:6px;">❌ Camera: '+err.message+'</div>';_showManualInput(onResult,status);}
   });
 }
+function _showManualInput(onResult,container){
+  window._bcOnResult=onResult;
+  var extra='<div style="margin-top:6px;display:flex;gap:6px;justify-content:center;">'
+    +'<input id="bc-manual" type="text" inputmode="numeric" placeholder="Barcode invoeren..." '
+    +'style="padding:9px;border-radius:8px;border:1px solid #4A8E7B;font-size:14px;width:165px;text-align:center;color:#1E3D20;background:#fff;"/>'
+    +'<button onclick="var v=document.getElementById(\'bc-manual\').value.trim();if(v)_bcOnResult(v);" '
+    +'style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;">OK</button>'
+    +'</div>';
+  if(container)container.innerHTML=(container.textContent||'')+extra;
+}
+
 
 function _tryDecode(video,onResult){
   if(!document.getElementById('barcode-modal'))return;
