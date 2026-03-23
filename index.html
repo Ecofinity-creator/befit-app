@@ -1019,7 +1019,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774251945',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774252773',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2128,7 +2128,7 @@ async function runMealPhotoAnalyse(k,input){
 }
 async function openBarcodeScanner(mealKey){
   var modal=document.createElement('div');
-  modal.id='barcode-modal';
+  modal.id='barcode-modal-sa';
   modal.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">'
     +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:12px;">\uD83D\uDCF7 Barcode scannen</div>'
     +'<div style="position:relative;width:100%;max-width:360px;">'
@@ -2298,13 +2298,13 @@ function openStandaloneScanner(){
   modal.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">'
     +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:12px;">\uD83D\uDCF7 Product informatie</div>'
     +'<div style="position:relative;width:100%;max-width:360px;">'
-    +'<video id="barcode-video" autoplay playsinline style="width:100%;border-radius:12px;background:#000;max-height:240px;object-fit:cover;"></video>'
+    +'<video id="sa-barcode-video" autoplay playsinline style="width:100%;border-radius:12px;background:#000;max-height:240px;object-fit:cover;"></video>'
     +'<div style="position:absolute;inset:15%;border:2px solid #C9A84C;border-radius:8px;pointer-events:none;"></div>'
     +'</div>'
-    +'<div id="barcode-status" style="color:#A8D4B8;font-size:12px;margin-top:10px;text-align:center;max-width:340px;">Camera wordt gestart...</div>'
-    +'<div id="barcode-result" style="display:none;width:100%;max-width:360px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
+    +'<div id="sa-barcode-status" style="color:#A8D4B8;font-size:12px;margin-top:10px;text-align:center;max-width:340px;">Camera wordt gestart...</div>'
+    +'<div id="sa-barcode-result" style="display:none;width:100%;max-width:360px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
     +'<div style="display:flex;gap:10px;margin-top:14px;">'
-    +'<button id="scan-again-btn" onclick="document.getElementById(\'barcode-result\').style.display=\'none\';document.getElementById(\'scan-again-btn\').style.display=\'none\';_startStandaloneScan();" style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDD04 Opnieuw</button>'
+    +'<button id="sa-scan-again-btn" onclick="document.getElementById(\'barcode-result\').style.display=\'none\';document.getElementById(\'scan-again-btn\').style.display=\'none\';_startStandaloneScan();" style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDD04 Opnieuw</button>'
     +'<button onclick="closeBarcodeScanner()" style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u2715 Sluiten</button>'
     +'</div></div>';
   document.body.appendChild(modal);
@@ -2313,14 +2313,14 @@ function openStandaloneScanner(){
 async function _startStandaloneScan(){
   try{
     _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    var video=document.getElementById('barcode-video');
+    var video=document.getElementById('sa-barcode-video');
     video.srcObject=_barcodeStream;await video.play();
-    var sEl=document.getElementById('barcode-status');
+    var sEl=document.getElementById('sa-barcode-status');
     if('BarcodeDetector' in window){
       var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
       var scanning=true;if(sEl)sEl.textContent='Richt de camera op de barcode...';
       (async function scan(){
-        if(!scanning||!document.getElementById('barcode-modal'))return;
+        if(!scanning||!document.getElementById('barcode-modal-sa'))return;
         try{var bc=await det.detect(video);
           if(bc.length>0){scanning=false;_showStandaloneResult(bc[0].rawValue);}
           else setTimeout(scan,250);
@@ -2330,12 +2330,12 @@ async function _startStandaloneScan(){
       if(sEl)sEl.innerHTML='<input id="manual-bc2" type="text" placeholder="Voer barcode in" style="padding:8px;border-radius:8px;border:1px solid #4A8E7B;font-size:14px;width:200px;text-align:center;color:#1E3D20;margin:6px 0;display:block;"/>'
         +'<button onclick="var v=document.getElementById(\'manual-bc2\').value.trim();if(v)_showStandaloneResult(v);" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;">Zoeken</button>';
     }
-  }catch(e){var s=document.getElementById('barcode-status');if(s)s.textContent='\u274C Camera fout: '+e.message;}
+  }catch(e){var s=document.getElementById('sa-barcode-status');if(s)s.textContent='\u274C Camera fout: '+e.message;}
 }
 async function _showStandaloneResult(barcode){
-  var s=document.getElementById('barcode-status');
-  var res=document.getElementById('barcode-result');
-  var btn=document.getElementById('scan-again-btn');
+  var s=document.getElementById('sa-barcode-status');
+  var res=document.getElementById('sa-barcode-result');
+  var btn=document.getElementById('sa-scan-again-btn');
   if(s)s.textContent='\u23F3 Product ophalen...';
   try{
     var resp=await fetch('https://world.openfoodfacts.org/api/v0/product/'+barcode+'.json');
@@ -2577,7 +2577,7 @@ async function openBarcodeAnalyse(){
   // Open scanner
   if(_barcodeStream){_barcodeStream.getTracks().forEach(function(t){t.stop();});_barcodeStream=null;}
   var modal=document.createElement('div');
-  modal.id='barcode-modal';
+  modal.id='ba-modal';
   modal.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">'
     +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:12px;">\uD83D\uDD0D Product analyse</div>'
     +'<div style="position:relative;width:100%;max-width:360px;">'
@@ -2775,6 +2775,7 @@ function chatKey(email){return 'chat:'+email;}
 function unreadBroadcastCount(email){var read=getReadIds(email);return getBroadcasts().filter(function(m){return !read.includes(m.id);}).length;}
 function getReadIds(email){return DB.get('broadcast:read:'+email)||[];}
 function getBroadcasts(){return DB.get('broadcast:messages')||[];}
+function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 function render(){
   var app=document.getElementById('app');
 
