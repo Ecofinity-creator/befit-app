@@ -1038,7 +1038,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774256011',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774257239',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -2089,97 +2089,10 @@ setInterval(function(){
 
 
 var _barcodeStream=null;
-function closeBarcodeScanner(){
-  if(_barcodeStream){_barcodeStream.getTracks().forEach(function(t){t.stop();});_barcodeStream=null;}
-  var el=document.getElementById('barcode-modal');if(el)el.remove();
-}
-async function openMealCamera(k){
-  var inp=document.createElement('input');
-  inp.type='file';
-  inp.accept='image/*';
-  inp.capture='environment';
-  inp.style.display='none';
-  inp.onchange=function(){runMealPhotoAnalyse(k,this);};
-  document.body.appendChild(inp);
-  inp.click();
-  setTimeout(function(){document.body.removeChild(inp);},5000);
-}
-async function runMealPhotoAnalyse(k,input){
-  var file=input.files&&input.files[0];
-  if(!file)return;
-  var mealName={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'}[k]||k;
-  showToast('\uD83E\uDD16 Maaltijd analyseren...');
-  var reader=new FileReader();
-  reader.onload=async function(e){
-    var base64=e.target.result.split(',')[1];
-    var mediaType=file.type||'image/jpeg';
-    try{
-      var apiKey=getApiKey();
-      if(!apiKey){showToast('\u274C Stel eerst je API-sleutel in bij Profiel');return;}
-      var resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',max_tokens:600,
-          system:'Je bent een voedingsdeskundige. Analyseer de foto van een maaltijd en geef een JSON-lijst van de voedingsmiddelen. Antwoord ENKEL in dit JSON-formaat: {"items":["voedingsmiddel 1","voedingsmiddel 2"]}. Wees beknopt en praktisch.',
-          messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
-            {type:'text',text:'Wat zie je op deze foto? Geef een lijst van de voedingsmiddelen als JSON.'}
-          ]}]
-        })
-      });
-      var data=await resp.json();
-      var txt=data.content&&data.content[0]&&data.content[0].text||'';
-      var clean=txt.replace(/```json|```/g,'').trim();
-      var parsed=JSON.parse(clean);
-      var items=parsed.items||[];
-      if(!items.length){showToast('\u274C Geen voeding herkend op de foto');return;}
-      if(!S.meals[k])S.meals[k]=[];
-      items.forEach(function(item){S.meals[k].push({t:item,ts:Date.now()});});
-      saveUserData();render();
-      showToast('\u2713 '+items.length+' item'+(items.length===1?'':'s')+' toegevoegd aan '+mealName);
-    }catch(err){
-      showToast('\u274C Analyse mislukt: '+err.message);
-    }
-  };
-  reader.readAsDataURL(file);
-}
-async function openBarcodeScanner(mealKey){
-  var modal=document.createElement('div');
-  modal.id='barcode-modal-sa';
-  modal.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">'
-    +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:12px;">\uD83D\uDCF7 Barcode scannen</div>'
-    +'<div style="position:relative;width:100%;max-width:360px;">'
-    +'<video id="barcode-video" autoplay playsinline style="width:100%;border-radius:12px;background:#000;max-height:260px;object-fit:cover;"></video>'
-    +'<div style="position:absolute;inset:15%;border:2px solid #C9A84C;border-radius:8px;pointer-events:none;"></div>'
-    +'</div>'
-    +'<div id="barcode-status" style="color:#A8D4B8;font-size:12px;margin-top:12px;text-align:center;max-width:320px;">Camera wordt gestart\u2026</div>'
-    +'<button onclick="closeBarcodeScanner()" style="margin-top:16px;background:#C0392B;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u2715 Sluiten</button>'
-    +'</div>';
-  document.body.appendChild(modal);
-  try{
-    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    var video=document.getElementById('barcode-video');
-    video.srcObject=_barcodeStream;await video.play();
-    var sEl=document.getElementById('barcode-status');
-    if('BarcodeDetector' in window){
-      var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
-      var scanning=true;if(sEl)sEl.textContent='Richt de camera op de barcode\u2026';
-      (async function scan(){
-        if(!scanning||!document.getElementById('barcode-modal'))return;
-        try{var bc=await det.detect(video);
-          if(bc.length>0){scanning=false;await fetchProductByBarcode(bc[0].rawValue,mealKey);}
-          else setTimeout(scan,250);
-        }catch(e){setTimeout(scan,350);}
-      })();
-    }else{
-      if(sEl)sEl.innerHTML='<div>Geen scanner beschikbaar.</div>'
-        +'<input id="manual-bc" type="text" placeholder="Voer barcode in" style="padding:8px;border-radius:8px;border:1px solid #4A8E7B;font-size:14px;width:220px;text-align:center;color:#1E3D20;margin:8px 0;"/>'
-        +'<button onclick="var v=document.getElementById(\'manual-bc\').value.trim();if(v)fetchProductByBarcode(v,\''+mealKey+'\');" style="display:block;background:#2A6030;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;">Zoeken</button>';
-    }
-  }catch(e){var s=document.getElementById('barcode-status');if(s)s.textContent='\u274C Camera fout: '+e.message;}
-}
+
+async 
+
+
 async function fetchProductByBarcode(barcode,mealKey){
   var s=document.getElementById('barcode-status');
   try{
@@ -2324,83 +2237,9 @@ function localNotif(title,body,tag){if(Notification.permission!=='granted')retur
 function getExtraAdmins(){return DB.get('extra:admins')||[];}
 
 
-function openStandaloneScanner(){
-  if(_barcodeStream){_barcodeStream.getTracks().forEach(function(t){t.stop();});_barcodeStream=null;}
-  var modal=document.createElement('div');
-  modal.id='barcode-modal';
-  modal.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">'
-    +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:12px;">\uD83D\uDCF7 Product informatie</div>'
-    +'<div style="position:relative;width:100%;max-width:360px;">'
-    +'<video id="sa-barcode-video" autoplay playsinline style="width:100%;border-radius:12px;background:#000;max-height:240px;object-fit:cover;"></video>'
-    +'<div style="position:absolute;inset:15%;border:2px solid #C9A84C;border-radius:8px;pointer-events:none;"></div>'
-    +'</div>'
-    +'<div id="sa-barcode-status" style="color:#A8D4B8;font-size:12px;margin-top:10px;text-align:center;max-width:340px;">Camera wordt gestart...</div>'
-    +'<div id="sa-barcode-result" style="display:none;width:100%;max-width:360px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
-    +'<div style="display:flex;gap:10px;margin-top:14px;">'
-    +'<button id="sa-scan-again-btn" onclick="document.getElementById(\'barcode-result\').style.display=\'none\';document.getElementById(\'scan-again-btn\').style.display=\'none\';_startStandaloneScan();" style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDD04 Opnieuw</button>'
-    +'<button onclick="closeBarcodeScanner()" style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u2715 Sluiten</button>'
-    +'</div></div>';
-  document.body.appendChild(modal);
-  _startStandaloneScan();
-}
-async function _startStandaloneScan(){
-  try{
-    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    var video=document.getElementById('sa-barcode-video');
-    video.srcObject=_barcodeStream;await video.play();
-    var sEl=document.getElementById('sa-barcode-status');
-    if('BarcodeDetector' in window){
-      var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
-      var scanning=true;if(sEl)sEl.textContent='Richt de camera op de barcode...';
-      (async function scan(){
-        if(!scanning||!document.getElementById('barcode-modal-sa'))return;
-        try{var bc=await det.detect(video);
-          if(bc.length>0){scanning=false;_showStandaloneResult(bc[0].rawValue);}
-          else setTimeout(scan,250);
-        }catch(e){setTimeout(scan,350);}
-      })();
-    }else{
-      if(sEl)sEl.innerHTML='<input id="manual-bc2" type="text" placeholder="Voer barcode in" style="padding:8px;border-radius:8px;border:1px solid #4A8E7B;font-size:14px;width:200px;text-align:center;color:#1E3D20;margin:6px 0;display:block;"/>'
-        +'<button onclick="var v=document.getElementById(\'manual-bc2\').value.trim();if(v)_showStandaloneResult(v);" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;">Zoeken</button>';
-    }
-  }catch(e){var s=document.getElementById('sa-barcode-status');if(s)s.textContent='\u274C Camera fout: '+e.message;}
-}
-async function _showStandaloneResult(barcode){
-  var s=document.getElementById('sa-barcode-status');
-  var res=document.getElementById('sa-barcode-result');
-  var btn=document.getElementById('sa-scan-again-btn');
-  if(s)s.textContent='\u23F3 Product ophalen...';
-  try{
-    var resp=await fetch('https://world.openfoodfacts.org/api/v0/product/'+barcode+'.json');
-    var data=await resp.json();
-    if(data.status===1&&data.product){
-      var p=data.product;
-      var name=(p.product_name_nl||p.product_name||p.generic_name||'Onbekend').trim();
-      var brand=p.brands?p.brands.split(',')[0].trim():'';
-      var n=p.nutriments||{};
-      function nu(k){var v=n[k+'_100g'];return v!=null?Math.round(v*10)/10:null;}
-      var kcal=n['energy-kcal_100g']?Math.round(n['energy-kcal_100g']):null;
-      if(s)s.textContent='\u2713 '+name+(brand?' \u2014 '+brand:'');
-      if(res){
-        res.style.display='block';
-        res.innerHTML='<div style="font-size:13px;font-weight:700;color:#F0EAD6;margin-bottom:2px;">'+name+'</div>'
-          +(brand?'<div style="font-size:11px;color:#A8D4B8;margin-bottom:8px;">'+brand+'</div>':'')
-          +'<div style="font-size:10px;color:#C9A84C;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Per 100g</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">'
-          +(kcal!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#C9A84C;">'+kcal+'</div><div style="font-size:9px;color:#A8D4B8;">kcal</div></div>':'')
-          +(nu('proteins')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#4A8E7B;">'+nu('proteins')+'g</div><div style="font-size:9px;color:#A8D4B8;">eiwitten</div></div>':'')
-          +(nu('carbohydrates')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('carbohydrates')+'g</div><div style="font-size:9px;color:#A8D4B8;">koolhyd.</div></div>':'')
-          +(nu('fat')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('fat')+'g</div><div style="font-size:9px;color:#A8D4B8;">vetten</div></div>':'')
-          +(nu('fiber')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('fiber')+'g</div><div style="font-size:9px;color:#A8D4B8;">vezels</div></div>':'')
-          +(nu('sugars')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('sugars')+'g</div><div style="font-size:9px;color:#A8D4B8;">suikers</div></div>':'')
-          +'</div>';
-      }
-    }else{
-      if(s)s.textContent='\u274C Product niet gevonden ('+barcode+')';
-    }
-    if(btn)btn.style.display='inline-block';
-  }catch(e){if(s)s.textContent='\u274C Fout: '+e.message;if(btn)btn.style.display='inline-block';}
-}
+
+
+
 function analyseMealBlock(k){
   if(!isAnalyseEnabled||!isAnalyseEnabled()) return '';
   var selDate=getMealDate(),result=DB.get(getMealAnalyseKey(S.user.email,selDate,k));
@@ -2852,6 +2691,211 @@ function saveBroadcasts(msgs){DB.set('broadcast:messages',msgs);}
 function saveChat(email,msgs){DB.set(chatKey(email),msgs);}
 function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);if(typeof sendPushToClient==='function'){var csub=DB.get('push:sub:'+email);if(csub)sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');}inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
 function sendChatMsg(){var inp=document.getElementById('chat-inp'),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(S.user.email);msgs.push({from:'client',name:S.user.name,text:txt,ts:Date.now()});saveChat(S.user.email,msgs);inp.value='';render();setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);}
+
+// ── Unified Barcode Scanner (ZXing) ─────────────────────────
+var _scanStream = null;
+var _zxingReader = null;
+
+function closeBarcodeScanner(){
+  if(_scanStream){_scanStream.getTracks().forEach(function(t){t.stop();});_scanStream=null;}
+  if(_zxingReader){try{_zxingReader.reset();}catch(e){} _zxingReader=null;}
+  var m=document.getElementById('barcode-modal');
+  if(m&&m.parentNode)m.parentNode.removeChild(m);
+}
+
+function _buildScanModal(title, onResult){
+  closeBarcodeScanner();
+  var modal=document.createElement('div');
+  modal.id='barcode-modal';
+  modal.innerHTML=
+    '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;">'
+    +'<div style="color:#F0EAD6;font-size:15px;font-weight:700;margin-bottom:10px;">'+title+'</div>'
+    +'<div style="position:relative;width:100%;max-width:340px;">'
+    +'<video id="bc-video" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;max-height:250px;object-fit:cover;display:block;"></video>'
+    +'<div style="position:absolute;inset:15%;border:2px solid #C9A84C;border-radius:8px;pointer-events:none;"></div>'
+    +'</div>'
+    +'<div id="bc-status" style="color:#A8D4B8;font-size:12px;margin-top:10px;text-align:center;max-width:320px;min-height:20px;">Camera starten...</div>'
+    +'<div id="bc-result" style="display:none;width:100%;max-width:340px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
+    +'<div style="display:flex;gap:10px;margin-top:14px;">'
+    +'<button id="bc-again" onclick="document.getElementById(\'bc-result\').style.display=\'none\';document.getElementById(\'bc-again\').style.display=\'none\';_resumeScan();" style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDD04 Opnieuw</button>'
+    +'<button onclick="closeBarcodeScanner()" style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\u2715 Sluiten</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  _startZxingScan(onResult);
+}
+
+function _startZxingScan(onResult){
+  var status=document.getElementById('bc-status');
+  var video=document.getElementById('bc-video');
+  if(!video){return;}
+
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false})
+  .then(function(stream){
+    _scanStream=stream;
+    video.srcObject=stream;
+    video.play();
+    if(status)status.textContent='Richt de camera op de barcode...';
+    _tryDecode(video,onResult);
+  })
+  .catch(function(err){
+    if(status)status.textContent='\u274C Camera niet beschikbaar: '+err.message;
+  });
+}
+
+function _tryDecode(video,onResult){
+  if(!document.getElementById('barcode-modal'))return;
+  // Try native BarcodeDetector first (Chrome Android 9+)
+  if('BarcodeDetector' in window){
+    var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code']});
+    var scan=function(){
+      if(!document.getElementById('barcode-modal'))return;
+      det.detect(video).then(function(codes){
+        if(codes&&codes.length>0){onResult(codes[0].rawValue);}
+        else{requestAnimationFrame(scan);}
+      }).catch(function(){requestAnimationFrame(scan);});
+    };
+    requestAnimationFrame(scan);
+    return;
+  }
+  // Fallback: manual barcode entry
+  var status=document.getElementById('bc-status');
+  if(status)status.innerHTML=
+    '<div style="margin-bottom:6px;">Automatisch scannen niet beschikbaar op dit toestel.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center;">'
+    +'<input id="bc-manual" type="text" inputmode="numeric" placeholder="Barcode invoeren..." '
+    +'style="padding:9px;border-radius:8px;border:1px solid #4A8E7B;font-size:14px;width:180px;text-align:center;color:#1E3D20;"/>'
+    +'<button onclick="var v=document.getElementById(\'bc-manual\').value.trim();if(v)_bcOnResult(v);" '
+    +'style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;">Zoeken</button>'
+    +'</div>';
+  // Store callback for manual input
+  window._bcOnResult=onResult;
+}
+
+function _resumeScan(){
+  var status=document.getElementById('bc-status');
+  if(status)status.textContent='Richt de camera op de barcode...';
+  var video=document.getElementById('bc-video');
+  if(video&&_scanStream){
+    // Re-attach stream if needed
+    if(!video.srcObject)video.srcObject=_scanStream;
+    video.play();
+  }
+}
+
+// ── Standalone scanner (Analyse tab - product info) ──────────
+function openStandaloneScanner(){
+  _buildScanModal('\uD83D\uDCF7 Product informatie', function(barcode){
+    _fetchAndShowProduct(barcode);
+  });
+}
+
+async function _fetchAndShowProduct(barcode){
+  var status=document.getElementById('bc-status');
+  var res=document.getElementById('bc-result');
+  var again=document.getElementById('bc-again');
+  if(status)status.textContent='\u23F3 Product ophalen...';
+  try{
+    var resp=await fetch('https://world.openfoodfacts.org/api/v0/product/'+barcode+'.json');
+    var data=await resp.json();
+    if(data.status===1&&data.product){
+      var p=data.product;
+      var name=(p.product_name_nl||p.product_name||p.generic_name||'Onbekend').trim();
+      var brand=p.brands?p.brands.split(',')[0].trim():'';
+      var n=p.nutriments||{};
+      function nu(k){var v=n[k+'_100g'];return v!=null?Math.round(v*10)/10:null;}
+      var kcal=n['energy-kcal_100g']?Math.round(n['energy-kcal_100g']):null;
+      if(status)status.textContent='\u2713 '+name+(brand?' \u2014 '+brand:'');
+      if(res){
+        res.style.display='block';
+        res.innerHTML='<div style="font-size:13px;font-weight:700;color:#F0EAD6;margin-bottom:2px;">'+name+'</div>'
+          +(brand?'<div style="font-size:11px;color:#A8D4B8;margin-bottom:8px;">'+brand+'</div>':'')
+          +'<div style="font-size:10px;color:#C9A84C;margin-bottom:6px;">Per 100g</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">'
+          +(kcal!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#C9A84C;">'+kcal+'</div><div style="font-size:9px;color:#A8D4B8;">kcal</div></div>':'')
+          +(nu('proteins')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#4A8E7B;">'+nu('proteins')+'g</div><div style="font-size:9px;color:#A8D4B8;">eiwitten</div></div>':'')
+          +(nu('carbohydrates')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('carbohydrates')+'g</div><div style="font-size:9px;color:#A8D4B8;">koolhyd.</div></div>':'')
+          +(nu('fat')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('fat')+'g</div><div style="font-size:9px;color:#A8D4B8;">vetten</div></div>':'')
+          +(nu('fiber')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('fiber')+'g</div><div style="font-size:9px;color:#A8D4B8;">vezels</div></div>':'')
+          +(nu('sugars')!=null?'<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:700;color:#7B9E87;">'+nu('sugars')+'g</div><div style="font-size:9px;color:#A8D4B8;">suikers</div></div>':'')
+          +'</div>';
+      }
+    }else{if(status)status.textContent='\u274C Niet gevonden ('+barcode+')';}
+    if(again)again.style.display='inline-block';
+  }catch(e){if(status)status.textContent='\u274C Fout: '+e.message;if(again)again.style.display='inline-block';}
+}
+
+// ── Meal scanner (maaltijd tab) ───────────────────────────────
+async function openBarcodeScanner(mealKey){
+  var mealName={morning:'Ontbijt',lunch:'Middag',evening:'Avond'}[mealKey]||mealKey;
+  _buildScanModal('\uD83D\uDCF7 Voeg toe aan '+mealName, function(barcode){
+    _fetchAndAddToMeal(barcode, mealKey);
+  });
+}
+
+async function _fetchAndAddToMeal(barcode, mealKey){
+  var status=document.getElementById('bc-status');
+  var again=document.getElementById('bc-again');
+  if(status)status.textContent='\u23F3 Product ophalen...';
+  try{
+    var resp=await fetch('https://world.openfoodfacts.org/api/v0/product/'+barcode+'.json');
+    var data=await resp.json();
+    if(data.status===1&&data.product){
+      var p=data.product;
+      var name=(p.product_name_nl||p.product_name||p.generic_name||'Onbekend').trim();
+      var brand=p.brands?p.brands.split(',')[0].trim():'';
+      var label=name+(brand?' ('+brand+')':'');
+      if(!S.meals[mealKey])S.meals[mealKey]=[];
+      S.meals[mealKey].push({t:label,ts:Date.now()});
+      saveUserData();
+      if(status)status.textContent='\u2713 Toegevoegd: '+label;
+      if(again)again.style.display='inline-block';
+      setTimeout(function(){closeBarcodeScanner();render();},1500);
+    }else{
+      if(status)status.textContent='\u274C Product niet gevonden ('+barcode+')';
+      if(again)again.style.display='inline-block';
+    }
+  }catch(e){if(status)status.textContent='\u274C Fout: '+e.message;if(again)again.style.display='inline-block';}
+}
+
+// ── Meal photo AI analysis ────────────────────────────────────
+function openMealCamera(k){
+  var inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.capture='environment';inp.style.display='none';
+  inp.onchange=function(){runMealPhotoAnalyse(k,this);};
+  document.body.appendChild(inp);inp.click();
+  setTimeout(function(){if(inp.parentNode)inp.parentNode.removeChild(inp);},10000);
+}
+async function runMealPhotoAnalyse(k,input){
+  var file=input.files&&input.files[0];if(!file)return;
+  var mealName={morning:'Ontbijt',lunch:'Middagmaal',evening:'Avondmaal'}[k]||k;
+  showToast('\uD83E\uDD16 Maaltijd analyseren...');
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var base64=e.target.result.split(',')[1];var mediaType=file.type||'image/jpeg';
+    try{
+      var apiKey=getApiKey();
+      if(!apiKey){showToast('\u274C Stel eerst je API-sleutel in bij Profiel');return;}
+      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,
+          system:'Je bent een voedingsdeskundige. Analyseer de foto en geef JSON: {"items":["item1","item2"]}. Enkel JSON, geen uitleg.',
+          messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},{type:'text',text:'Welke voedingsmiddelen zie je?'}]}]})
+      });
+      var data=await resp.json();
+      var txt=data.content&&data.content[0]&&data.content[0].text||'';
+      var parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      var items=parsed.items||[];
+      if(!items.length){showToast('\u274C Geen voeding herkend');return;}
+      if(!S.meals[k])S.meals[k]=[];
+      items.forEach(function(item){S.meals[k].push({t:item,ts:Date.now()});});
+      saveUserData();render();
+      showToast('\u2713 '+items.length+' items toegevoegd aan '+mealName);
+    }catch(err){showToast('\u274C Analyse mislukt: '+err.message);}
+  };
+  reader.readAsDataURL(file);
+}
+
 function render(){
   var app=document.getElementById('app');
 
