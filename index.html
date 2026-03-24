@@ -328,7 +328,12 @@ async function loadAdminClientsFromFirestore(){
     // Also load today's diary for each client
     var emails=snap.docs.map(function(doc){return fromFsKey(doc.id).replace('user:','');});
     var diaryPromises=emails.map(function(email){
-      var keys=['diary:'+email+':'+today()];
+      var keys=[];
+      for(var _di=0;_di<7;_di++){
+        var _ddate=new Date();_ddate.setDate(_ddate.getDate()-_di);
+        var _dds=_ddate.getFullYear()+'-'+String(_ddate.getMonth()+1).padStart(2,'0')+'-'+String(_ddate.getDate()).padStart(2,'0');
+        keys.push('diary:'+email+':'+_dds);
+      }
       // Also sync analyse keys for today
       ['morning','lunch','evening'].forEach(function(k){
         keys.push('analyse:'+email+':'+today()+':'+k);
@@ -1079,7 +1084,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774336094',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774338345',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1784,36 +1789,36 @@ function progressPhotosBlock(){
 // ── STAPPENTELLER ─────────────────────────────────────────────
 var _stepCount=0,_stepListener=null,_lastAcc=0;
 function startStepCounting(){
-  if(_stepListener)return; // already running
+  if(_stepListener)return;
   if(!window.DeviceMotionEvent){
-    showToast('❌ Stappenteller niet beschikbaar op dit toestel');return;
+    showToast("\u274C Stappenteller niet beschikbaar");return;
   }
   function go(){
-    var threshold=10,lastStep=0;
+    var lastMag=0,lastStep=0,buf=[],threshold=2.5;
     _stepListener=function(e){
-      var acc=e.accelerationIncludingGravity;if(!acc)return;
+      var acc=e.acceleration||e.accelerationIncludingGravity;
+      if(!acc||acc.x==null)return;
       var mag=Math.sqrt((acc.x||0)*(acc.x||0)+(acc.y||0)*(acc.y||0)+(acc.z||0)*(acc.z||0));
+      buf.push(mag);if(buf.length>4)buf.shift();
+      var avg=buf.reduce(function(s,v){return s+v;},0)/buf.length;
+      var delta=Math.abs(avg-lastMag);lastMag=avg;
       var now=Date.now();
-      if(Math.abs(mag-_lastAcc)>threshold&&now-lastStep>250){
+      if(delta>threshold&&now-lastStep>350){
         _stepCount++;lastStep=now;
-        var el=document.getElementById('step-count-display');
-        if(el)el.textContent=_stepCount+' stappen';
-        if(_stepCount%10===0)DB.set('steps:'+S.user.email+':'+today(),_stepCount);
+        var el=document.getElementById("step-count-display");
+        if(el)el.textContent=_stepCount+" stappen";
+        if(_stepCount%5===0&&S.user)DB.set("steps:"+S.user.email+":"+today(),_stepCount);
       }
-      _lastAcc=mag;
     };
-    window.addEventListener('devicemotion',_stepListener,{passive:true});
+    window.addEventListener("devicemotion",_stepListener,{passive:true});
+    showToast("\uD83D\uDC5F Stappenteller actief");
   }
-  if(typeof DeviceMotionEvent.requestPermission==='function'){
-    // iOS 13+: request permission
-    DeviceMotionEvent.requestPermission()
-      .then(function(r){if(r==='granted'){go();showToast('?? Stappenteller actief');}
-        else showToast('❌ Toestemming nodig voor stappenteller');})
-      .catch(function(){go();}); // Non-iOS: just go
-  } else {
-    go(); // Android / desktop
-    showToast('?? Stappenteller actief');
-  }
+  if(typeof DeviceMotionEvent.requestPermission==="function"){
+    DeviceMotionEvent.requestPermission().then(function(r){
+      if(r==="granted")go();
+      else showToast("\u274C Toestemming geweigerd");
+    }).catch(function(){go();});
+  }else go();
 }
 function stopStepCounting(){if(_stepListener){window.removeEventListener('devicemotion',_stepListener);_stepListener=null;}render();}
 function getTodaySteps(){return DB.get('steps:'+S.user.email+':'+today())||0;}
