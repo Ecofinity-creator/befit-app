@@ -1076,8 +1076,8 @@ function renderAdminClient(c,i){
     +(status==='pending'?aBtns:'')
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
-    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+'</div>'+_tpHtml:'')
-    +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+_wEvol+chatSec:'')
+    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+'</div>':'')
+    +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+_wEvol+_tpHtml+chatSec:'')
     +(status==='rejected'?aBtns:'')
     +'</div></div>';
 }
@@ -1100,7 +1100,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774345687',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774346089',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
