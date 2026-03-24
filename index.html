@@ -477,7 +477,7 @@ function doLogin(){
     S.snacks={morning:[],lunch:[],evening:[]};
     S.water=0;S.reminders=[];
     loadUserData();S.screen='app';
-    saveSession();startReminderCheck();render();requestNotifPermission();setTimeout(startStepCounting,1500);
+    saveSession();if(S._startTab){S.tab=S._startTab;}startReminderCheck();render();requestNotifPermission();setTimeout(startStepCounting,1500);
     syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
     startDiarySync(email);
   }
@@ -1037,7 +1037,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774331890',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774332188',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1053,6 +1053,31 @@ if('serviceWorker' in navigator){
     window.location.reload();
   });
 }
+
+// Handle push notification deep links
+if(navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', function(e){
+    if(e.data && e.data.type === 'NAVIGATE' && e.data.url){
+      var url = e.data.url;
+      var tab = (url.match(/[?&]tab=([^&]+)/) || [])[1];
+      var section = (url.match(/[?&]section=([^&]+)/) || [])[1];
+      if(tab && S.user){
+        S.tab = tab;
+        if(section === 'snack'){
+          S.scrollToSnack = tab; // signal to scroll to snack section
+        }
+        render();
+        setTimeout(function(){
+          var el = section === 'snack' 
+            ? document.getElementById('snack-in-'+tab)
+            : document.getElementById('meal-in-'+tab);
+          if(el){ el.scrollIntoView({behavior:'smooth'}); el.focus(); }
+        }, 300);
+      }
+    }
+  });
+}
+
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
 async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
 async function requestNotifPermission(){
@@ -1825,11 +1850,27 @@ setDarkMode(getDarkMode());
 
 // ── ONBOARDING ────────────────────────────────────────────────
 var ONBOARDING_STEPS=[
-  {icon:'\uD83C\uDF05',title:'Maaltijden bijhouden',text:'Tik op Ontbijt, Middag of Avond om je maaltijden in te geven. Voeg items toe met de + knop.'},
-  {icon:'\uD83D\uDCA7',title:'Water bijhouden',text:'Tik op het Water-tabblad en schuif de slider of tik op een glas om je waterinname bij te houden.'},
-  {icon:'\uD83C\uDF1F',title:'Hoe voel je je?',text:'Geef elke dag je honger, energie en stemming in op het Gevoel-tabblad. Je di\u00ebtiste volgt dit mee.'},
-  {icon:'\uD83D\uDCCB',title:'Dagoverzicht',text:'Het Dag-tabblad toont alles van vandaag in \u00e9\u00e9n overzicht: maaltijden, water, beweging en feedback.'},
-  {icon:'\uD83D\uDC4D',title:'Klaar om te starten!',text:'Je di\u00ebtiste kan je feedback geven en doelstellingen instellen. Succes met je gezonde levensstijl!'},
+  {icon:'??',title:'Welkom bij Be Fit Marke!',
+   text:'Je persoonlijk eetdagboekje, begeleid door je diëtiste Delphine.',
+   tip:'Swipe door de rondleiding om alle functies te ontdekken.'},
+  {icon:'??',title:'Maaltijden bijhouden',
+   text:'Tik op Ontbijt, Middag of Avond. Typ wat je at, druk op +. Of scan een barcode ?? of maak een foto ??️ voor automatische herkenning.',
+   tip:'?? Tip: gebruik de ♥ knop om favoriete maaltijden te bewaren voor snel hergebruik!'},
+  {icon:'??',title:'Water bijhouden',
+   text:'Tik op het Water-tabblad en gebruik de schuifbalk. Je dagdoel staat klaar — elk glas telt mee!',
+   tip:'?? Haal je doel meerdere dagen op rij voor een water streak!'},
+  {icon:'??',title:'Hoe voel je je?',
+   text:'Bij Gevoel kun je je honger, energie en stemming bijhouden. Dit helpt Delphine je beter te begeleiden.',
+   tip:'?? Probeer dit elke dag in te vullen voor de beste inzichten.'},
+  {icon:'??',title:'Analyse & inzichten',
+   text:'Bij Analyse zie je je weekoverzicht. Laat de AI je maaltijden analyseren voor voedingswaarden en tips!',
+   tip:'?? De AI-analyse werkt het best als je regelmatig invult.'},
+  {icon:'??',title:'Chat met Delphine',
+   text:'Via de Chat-knop kun je rechtstreeks berichten sturen naar Delphine. Zij geeft ook feedback op je dagboek.',
+   tip:'?? Zet meldingen aan zodat je Delphines feedback meteen ontvangt!'},
+  {icon:'??',title:'Klaar om te starten!',
+   text:'Je dagboekje staat klaar. Vul vandaag je eerste maaltijd in — Delphine volgt mee!',
+   tip:'Succes met je Be Fit avontuur! ??'}
 ];
 function isOnboardingDone(){return localStorage.getItem('befit:onboarding')==='done';}
 function markOnboardingDone(){localStorage.setItem('befit:onboarding','done');}
@@ -1839,22 +1880,28 @@ function onboardingOverlay(){
   if(isOnboardingDone()||!S.user||S.user.isAdmin)return '';
   var step=getOnboardingStep();
   var s=ONBOARDING_STEPS[step];
+  var total=ONBOARDING_STEPS.length;
   var dots=ONBOARDING_STEPS.map(function(_,i){
-    return '<div style="width:8px;height:8px;border-radius:50%;background:'+(i===step?'#C9A84C':'rgba(255,255,255,0.3')+';" ></div>';
+    return '<div onclick="setOnboardingStep('+i+');render()" style="width:'+(i===step?'20':'8')+'px;height:8px;border-radius:4px;background:'+(i===step?'#C9A84C':'rgba(255,255,255,0.4)')+';cursor:pointer;transition:all .3s;"></div>';
   }).join('');
-  var isLast=step===ONBOARDING_STEPS.length-1;
-  return '<div onclick="event.stopPropagation()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;">'
-    +'<div style="background:#1E3D20;border-radius:20px;padding:32px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">'
-    +'<div style="font-size:56px;margin-bottom:16px;">'+s.icon+'</div>'
-    +'<div style="font-family:Playfair Display,serif;font-size:20px;font-weight:700;color:#F0EAD6;margin-bottom:10px;">'+s.title+'</div>'
-    +'<div style="font-size:14px;color:#A8D4B8;line-height:1.7;margin-bottom:24px;">'+s.text+'</div>'
-    +'<div style="display:flex;justify-content:center;gap:6px;margin-bottom:20px;">'+dots+'</div>'
+  var isLast=step===total-1;
+  return '<div id="onboarding-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">'
+    +'<div style="background:linear-gradient(135deg,#1E3D20,#2A6030);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">'
+    +'<div style="font-size:56px;margin-bottom:12px;animation:obPulse 2s ease-in-out infinite;">'+s.icon+'</div>'
+    +'<div style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Stap '+(step+1)+' van '+total+'</div>'
+    +'<div style="color:#F0EAD6;font-size:18px;font-weight:700;margin-bottom:10px;">'+s.title+'</div>'
+    +'<div style="color:#A8D4B8;font-size:13px;line-height:1.6;margin-bottom:12px;">'+s.text+'</div>'
+    +(s.tip?'<div style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:10px 12px;font-size:11px;color:#C9A84C;margin-bottom:16px;text-align:left;">'+s.tip+'</div>':'')
+    +'<div style="display:flex;justify-content:center;gap:6px;margin-bottom:16px;">'+dots+'</div>'
     +'<div style="display:flex;gap:10px;">'
-    +'<button onclick="markOnboardingDone();render()" style="flex:1;background:transparent;color:#A8D4B8;border:1px solid #2A6030;border-radius:10px;padding:12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Overslaan</button>'
+    +(step>0?'<button onclick="setOnboardingStep('+(step-1)+');render()" style="flex:1;background:rgba(255,255,255,0.1);color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:13px;cursor:pointer;">❮ Vorige</button>':'')
     +(isLast
-      ?'<button onclick="markOnboardingDone();render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDC4D Aan de slag!</button>'
-      :'<button onclick="setOnboardingStep('+(step+1)+');render()" style="flex:2;background:#4A8E7B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Volgende \u2192</button>')
-    +'</div></div></div>';
+      ?'<button onclick="finishOnboarding();render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">?? Aan de slag!</button>'
+      :'<button onclick="setOnboardingStep('+(step+1)+');render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">Volgende ❯</button>')
+    +'</div>'
+    +'<button onclick="finishOnboarding();render()" style="margin-top:10px;background:none;border:none;color:rgba(255,255,255,0.4);font-size:11px;cursor:pointer;">Rondleiding overslaan</button>'
+    +'</div></div>'
+    +'<style>@keyframes obPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}</style>';
 }
 function isDarkMode(){return localStorage.getItem('befit:darkmode')==='1'||localStorage.getItem('darkMode')==='1';}
 function toggleDarkMode(){
@@ -2880,7 +2927,9 @@ async function runMealPhotoAnalyse(k,input){
       if(!items.length){showToast('\u274C Geen voeding herkend');return;}
       if(!S.meals[k])S.meals[k]=[];
       items.forEach(function(item){S.meals[k].push({t:item,ts:Date.now()});});
-      saveUserData();render();
+      saveUserData();
+      savePhotoToArchive(e.target.result, items.join(', '), k, getMealDate());
+      render();
       showToast('\u2713 '+items.length+' items toegevoegd aan '+mealName);
     }catch(err){showToast('\u274C Analyse mislukt: '+err.message);}
   };
@@ -3123,6 +3172,17 @@ function exportWeekPDF(){
   if(win){win.document.write(html);win.document.close();}
   else{showToast('\u274C Pop-up geblokkeerd. Sta pop-ups toe voor deze site.');}
 }
+
+// Handle URL parameters from push notification clicks
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  var section = params.get('section');
+  if(tab){ 
+    S._startTab = tab;
+    S._startSection = section;
+  }
+})();
 function render(){
   var app=document.getElementById('app');
 

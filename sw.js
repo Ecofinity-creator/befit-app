@@ -53,3 +53,36 @@ self.addEventListener('push', function(e) {
 self.addEventListener('message', function(e) {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
+
+self.addEventListener('notificationclick', function(e) {
+  e.notification.close();
+  var tag = e.notification.tag || '';
+  var url = '/befit-app/';
+  
+  // Deep links based on notification tag
+  if (tag.startsWith('snack-')) {
+    var meal = tag.replace('snack-', '');
+    url = '/befit-app/?tab=' + meal + '&section=snack';
+  } else if (tag === 'chat') {
+    url = '/befit-app/?tab=chat';
+  } else if (tag === 'feedback') {
+    url = '/befit-app/?tab=morning';
+  } else if (tag === 'broadcast') {
+    url = '/befit-app/?tab=news';
+  }
+  
+  e.waitUntil(
+    clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(cls) {
+      // If app is already open, focus and navigate
+      for (var i = 0; i < cls.length; i++) {
+        if (cls[i].url.includes('/befit-app/')) {
+          cls[i].focus();
+          cls[i].postMessage({type: 'NAVIGATE', url: url});
+          return;
+        }
+      }
+      // Otherwise open new window
+      return clients.openWindow(url);
+    })
+  );
+});
