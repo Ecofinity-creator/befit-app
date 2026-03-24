@@ -1100,7 +1100,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BEAyf-GldiNn5xkuXFFl6dLqaICQii6aQS7PWDHw-eU6rxI2Zc9-_RtvtzXzzIo2X2XAZnOHj7HxLd9YHuBxH_0';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774348586',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774384120',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1959,10 +1959,10 @@ var ONBOARDING_STEPS=[
    text:'Je dagboekje staat klaar. Vul vandaag je eerste maaltijd in — Delphine volgt mee!',
    tip:'Succes met je Be Fit avontuur! &#x1F389;'}
 ];
-function isOnboardingDone(){return localStorage.getItem('befit:onboarding')==='done';}
-function markOnboardingDone(){localStorage.setItem('befit:onboarding','done');}
-function getOnboardingStep(){return parseInt(localStorage.getItem('befit:onboarding:step')||'0');}
-function setOnboardingStep(n){localStorage.setItem('befit:onboarding:step',String(n));}
+function isOnboardingDone(){return localStorage.getItem('befit:onboarding_done')==='1';}
+function markOnboardingDone(){localStorage.setItem('befit:onboarding_done','1');}
+function getOnboardingStep(){return parseInt(localStorage.getItem('befit:onboarding_step')||'0');}
+function setOnboardingStep(n){localStorage.setItem('befit:onboarding_step',n);}
 function onboardingOverlay(){
   if(isOnboardingDone()||!S.user||S.user.isAdmin)return '';
   var step=getOnboardingStep();
@@ -1983,7 +1983,7 @@ function onboardingOverlay(){
     +'<div style="display:flex;gap:10px;">'
     +(step>0?'<button onclick="setOnboardingStep('+(step-1)+');render()" style="flex:1;background:rgba(255,255,255,0.1);color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:13px;cursor:pointer;">❮ Vorige</button>':'')
     +(isLast
-      ?'<button onclick="finishOnboarding();render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">?? Aan de slag!</button>'
+      ?'<button onclick="finishOnboarding();render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">&#x1F44D; Aan de slag!</button>'
       :'<button onclick="setOnboardingStep('+(step+1)+');render()" style="flex:2;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">Volgende ❯</button>')
     +'</div>'
     +'<button onclick="finishOnboarding();render()" style="margin-top:10px;background:none;border:none;color:rgba(255,255,255,0.4);font-size:11px;cursor:pointer;">Rondleiding overslaan</button>'
@@ -3197,21 +3197,25 @@ function buildMealInput(k,ph){
 
 async function sendPushToClient(subscription, title, body, tag){
   var backendUrl='https://befit-backend-teal.vercel.app';
-  var resp=await fetch(backendUrl+'/api/send-push',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
-  });
+  var resp;
+  try{
+    resp=await fetch(backendUrl+'/api/send-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
+    });
+  }catch(netErr){
+    throw new Error('CORS/netwerk fout. Vercel send-push.js moet CORS headers bevatten. Update api/send-push.js op GitHub en redeploy Vercel.');
+  }
   if(!resp.ok){
     var errText='';
     try{var j=await resp.json();errText=j.error||resp.status+'';}catch(x){errText=resp.status+'';}
     if(resp.status===410||resp.status===404){
-      // Subscription expired - clear it so user re-subscribes
       if(S.user)DB.del('push:sub:'+S.user.email);
-      throw new Error('Abonnement verlopen ('+resp.status+'). Klant moet app opnieuw openen.');
+      throw new Error('Abonnement verlopen. Klant moet app opnieuw openen.');
     }
     if(resp.status===500&&errText.includes('VAPID_PRIVATE_KEY')){
-      throw new Error('VAPID_PRIVATE_KEY niet ingesteld in Vercel. Zie instructies.');
+      throw new Error('VAPID_PRIVATE_KEY niet ingesteld in Vercel environment variables!');
     }
     throw new Error(errText||resp.status+'');
   }
