@@ -1025,6 +1025,11 @@ function renderAdminClient(c,i){
     :status==='approved'
     ?'<div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
     :'<div style="margin-top:8px;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
+  var _tpHtml='<div style="margin-top:8px;">'
+    +'<button id="tpb-'+i+'" onclick="event.stopPropagation();sendTestPush(\''+c.email+'\','+i+')" '
+    +'style="background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:7px 14px;'
+    +'font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F514; Test push sturen</button>'
+    +'</div>';
   var _notesOpen=sessionStorage.getItem('notes-open:'+c.email)==='1';
   var _notesVal=getClientNotes(c.email);
   var _notesHtml='<div style="margin-top:6px;">'
@@ -1060,7 +1065,7 @@ function renderAdminClient(c,i){
     +(status==='pending'?aBtns:'')
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
-    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+'</div>':'')
+    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+_tpHtml+'</div>':'')
     +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+_wEvol+chatSec:'')
     +(status==='rejected'?aBtns:'')
     +'</div></div>';
@@ -1084,7 +1089,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774340969',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774344310',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1850,7 +1855,15 @@ function stepsBlock(){
 // ── OFFLINE INDICATOR ─────────────────────────────────────────
 function updateOnlineStatus(){
   var bar=document.getElementById('offline-bar');
-  if(bar)bar.style.display=navigator.onLine?'none':'flex';
+  if(!bar)return;
+  if(navigator.onLine){
+    if(bar.style.display==='flex'){
+      bar.style.background='#2A6030';
+      bar.innerHTML='<span>&#x2705; Verbinding hersteld — synchroniseren...</span>';
+      setTimeout(function(){bar.style.display='none';bar.style.background='#C0392B';},3000);
+      if(S.user&&S.user.email){syncFromFirestore(S.user.email).catch(function(){});saveUserData();}
+    } else { bar.style.display='none'; }
+  } else { bar.style.display='flex'; }
 }
 window.addEventListener('online',updateOnlineStatus);
 
@@ -3307,6 +3320,45 @@ function syncFeedbackFromFirestore(email, date){
     }
   }).catch(function(){});
 }
+function sendTestPush(email,i){
+  var sub=DB.get('push:sub:'+email);
+  if(!sub){showToast('\u274C Geen push-abonnement voor deze klant. Vraag de klant om meldingen toe te staan.');return;}
+  var btn=document.getElementById('tpb-'+i);
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  sendPushToClient(sub,'Be Fit Marke \uD83C\uDF3F','Test bericht \u2014 alles werkt! \u2705','test')
+    .then(function(){showToast('\u2713 Test push verstuurd');if(btn){btn.textContent='\u2713 OK';setTimeout(function(){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;},3000);}})
+    .catch(function(e){showToast('\u274C '+e.message);if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}});
+}
+
+function showChangePasswordModal(){
+  var m=document.getElementById('chpwd-modal');if(m)m.remove();
+  var el=document.createElement('div');el.id='chpwd-modal';
+  el.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9800;display:flex;align-items:center;justify-content:center;padding:20px;">'+'<div style="background:white;border-radius:20px;padding:28px 24px;max-width:340px;width:100%;">'+'<div style="font-size:16px;font-weight:700;color:#1E3D20;margin-bottom:6px;">&#x1F512; Wachtwoord wijzigen</div>'+'<div id="cpw-err" style="display:none;background:#FEE;border:1px solid #C0392B;border-radius:8px;padding:10px;font-size:12px;color:#C0392B;margin-bottom:12px;"></div>'+'<div id="cpw-ok" style="display:none;background:#EAF4EE;border:1px solid #2A6030;border-radius:8px;padding:10px;font-size:12px;color:#2A6030;margin-bottom:12px;"></div>'+'<input id="cpw-cur" type="password" placeholder="Huidig wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:11px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;box-sizing:border-box;"/>'+'<input id="cpw-new1" type="password" placeholder="Nieuw wachtwoord (min. 6 tekens)" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:11px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:10px;box-sizing:border-box;"/>'+'<input id="cpw-new2" type="password" placeholder="Herhaal nieuw wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:11px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:18px;box-sizing:border-box;"/>'+'<div style="display:flex;gap:10px;">'+'<button onclick="document.getElementById(\'chpwd-modal\').remove()" style="flex:1;background:#F0EAD6;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Annuleren</button>'+'<button onclick="doClientChangePassword()" style="flex:2;background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Opslaan</button>'+'</div></div></div>';
+  document.body.appendChild(el);
+  setTimeout(function(){var i=document.getElementById('cpw-cur');if(i)i.focus();},100);
+}
+function doClientChangePassword(){
+  var cur=document.getElementById('cpw-cur').value;
+  var n1=document.getElementById('cpw-new1').value;
+  var n2=document.getElementById('cpw-new2').value;
+  var errEl=document.getElementById('cpw-err');
+  var okEl=document.getElementById('cpw-ok');
+  function showErr(msg){errEl.textContent=msg;errEl.style.display='block';okEl.style.display='none';}
+  if(!cur||!n1||!n2){showErr('Vul alle velden in.');return;}
+  if(n1.length<6){showErr('Nieuw wachtwoord moet minimaal 6 tekens zijn.');return;}
+  if(n1!==n2){showErr('De wachtwoorden komen niet overeen.');return;}
+  var ud=DB.get('user:'+S.user.email);
+  if(!ud||ud.pass!==cur){showErr('Huidig wachtwoord is onjuist.');return;}
+  ud.pass=n1;DB.set('user:'+S.user.email,ud);
+  if(fsdb&&typeof fsKey==='function'){
+    fsdb.collection('data').doc(fsKey('user:'+S.user.email)).set({v:JSON.stringify(ud)}).catch(function(){});
+  }
+  errEl.style.display='none';
+  okEl.textContent='\u2713 Wachtwoord succesvol gewijzigd!';
+  okEl.style.display='block';
+  setTimeout(function(){var m=document.getElementById('chpwd-modal');if(m)m.remove();},2000);
+}
+
 function render(){
   var app=document.getElementById('app');
 
@@ -3369,7 +3421,7 @@ function render(){
     app.innerHTML='<div class="admin-bar" style="flex-direction:column;align-items:center;padding:14px 18px 10px;">'
       +logoSVG(160)
       +'<div style="font-family:\'Playfair Display\',serif;font-size:12px;color:#C9B97A;font-weight:500;margin-top:2px;font-style:italic;">Beheer &mdash; '+S.user.name+'</div>'
-      +'<button style="font-size:10px;color:#C9B97A;background:none;border:none;cursor:pointer;font-family:Lato,sans-serif;font-weight:700;margin-top:2px;" onclick="logout()">Uitloggen</button>'
+      +'<div style="display:flex;gap:8px;align-items:center;">'+'<button style="font-size:10px;color:rgba(255,255,255,0.5);background:none;border:none;cursor:pointer;font-family:Lato,sans-serif;font-weight:600;" onclick="showChangePasswordModal()">&#x1F512;</button>'+'<button style="font-size:10px;color:#C9B97A;background:none;border:none;cursor:pointer;font-family:Lato,sans-serif;font-weight:700;" onclick="logout()">Uitloggen</button>'+'</div>'
       +'</div>'
       +'<div style="display:flex;background:#fff;border-bottom:2px solid #EAE2D0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;">'
         +'<div onclick="S.adminTab=\'clients\';render()" style="'+tabStyle+'color:'+(t1?'#1E3D20':'#9E9580')+';border-bottom:'+(t1?'3px solid #4A8E7B':'3px solid transparent')+';margin-bottom:-2px;">\uD83D\uDCCB Klanten</div>'
