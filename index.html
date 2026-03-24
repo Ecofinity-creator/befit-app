@@ -386,6 +386,9 @@ function showNotif(msg){var b=document.getElementById('notif-bar');document.getE
 function saveUserData(){if(!S.user)return;saveSession();DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
 function loadUserData(){
   if(!S.user)return;
+  // Sync feedback from Firestore (admin may have added feedback)
+  syncFeedbackFromFirestore(S.user.email, getMealDate());
+
   var targetDate = S.mealDate || today();
   var d = DB.get('diary:'+S.user.email+':'+targetDate);
   if(d){
@@ -1076,7 +1079,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774334889',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774336094',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1210,6 +1213,7 @@ function summaryNextDay(){var d=new Date(getSummaryDate());d.setDate(d.getDate()
 function getMealDate(){return S.mealDate||today();}
 function setMealDate(d){
   S.mealDate=d;
+  if(S.user&&!S.user.isAdmin)syncFeedbackFromFirestore(S.user.email,d);
   // If going back to today, use live S state (already in sync via listener)
   if(d===today()){loadUserData();render();return;}
   // Load from localStorage first for instant display
@@ -2814,7 +2818,12 @@ function addReminder(){var desc=document.getElementById('rem-desc'),time=documen
 function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
 function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
 function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
-function saveFeedbackMeal(email,date,meal,text){var key='feedback:'+email+':'+date,ex=DB.get(key)||{};ex[meal]=text;ex.ts=Date.now();ex.adminName=S.user?S.user.name:'';DB.set(key,ex);// Push notification to client
+function saveFeedbackMeal(email,date,meal,text){var key='feedback:'+email+':'+date,ex=DB.get(key)||{};ex[meal]=text;ex.ts=Date.now();ex.adminName=S.user?S.user.name:'';DB.set(key,ex);
+  // Sync to Firestore so client can see it
+  if(fsdb&&typeof fsKey==='function'){
+    fsdb.collection('data').doc(fsKey(key)).set({v:JSON.stringify(ex)}).catch(function(e){console.warn('feedback sync:',e);});
+  }
+  // Push notification to client
   var sub=DB.get('push:sub:'+email);
   if(sub&&typeof sendPushToClient==='function'){
     var mealLabel=meal==='morning'?'ontbijt':meal==='lunch'?'middagmaal':'avondmaal';
@@ -3224,6 +3233,18 @@ function exportWeekPDF(){
 })();
 
 function finishOnboarding(){localStorage.setItem('befit:onboarding_done','1');localStorage.removeItem('befit:onboarding_step');}
+
+function syncFeedbackFromFirestore(email, date){
+  if(!fsdb||typeof fsKey!=='function')return;
+  var key='feedback:'+email+':'+date;
+  fsdb.collection('data').doc(fsKey(key)).get().then(function(snap){
+    if(snap.exists){
+      var data=JSON.parse(snap.data().v||'{}');
+      DB.set(key, data);
+      render(); // re-render to show feedback
+    }
+  }).catch(function(){});
+}
 function render(){
   var app=document.getElementById('app');
 
