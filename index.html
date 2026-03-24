@@ -485,7 +485,7 @@ function doLogin(){
     S.snacks={morning:[],lunch:[],evening:[]};
     S.water=0;S.reminders=[];
     loadUserData();S.screen='app';
-    saveSession();if(S._startTab){S.tab=S._startTab;}startReminderCheck();checkMissedSnackPushes();render();requestNotifPermission();setTimeout(startStepCounting,1500);
+    saveSession();if(S._startTab){S.tab=S._startTab;}startReminderCheck();checkMissedSnackPushes();scheduleDailyReminder();render();requestNotifPermission();setTimeout(startStepCounting,1500);
     syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
     startDiarySync(email);
   }
@@ -591,7 +591,18 @@ function mealBlock(k){
   var fbHtml=mealFb
     ?'<div style="margin:10px 0 4px 0;background:#FDFAF5;border-left:3px solid '+dc+';border-radius:0 8px 8px 0;padding:10px 14px;"><div style="font-size:10px;font-weight:700;color:'+dc+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">\uD83D\uDCAC Feedback Be Fit</div><div style="font-size:12px;color:#2C3E28;line-height:1.7;font-style:italic;">&ldquo;'+mealFb+'&rdquo;</div><div style="font-size:10px;color:#9E9580;margin-top:5px;">'+(fb.adminName||'Di\u00ebtiste')+' &middot; '+fbDate+'</div></div>'
     :'';
-  var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>';
+  var mHtml=ms.length?ms.map(function(x,i){return '<div class="logged-item"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" title="Pas tijdstip aan" oninput="updateMealTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delMeal(\''+k+'\','+i+')">&times;</span></div>';}).join(''):(S.meals.morning.length===0&&S.meals.lunch.length===0&&S.meals.evening.length===0
+    &&(!DB.get('diary:'+S.user.email+':'+today()))
+    ?'<div style="text-align:center;padding:20px 16px;">'
+      +'<div style="font-size:36px;margin-bottom:10px;">&#x1F957;</div>'
+      +'<div style="font-size:15px;font-weight:700;color:#1E3D20;margin-bottom:6px;">Voeg je eerste maaltijd toe!</div>'
+      +'<div style="font-size:12px;color:#9E9580;line-height:1.6;margin-bottom:14px;">Typ wat je at en druk op <strong>+</strong>.<br/>Of gebruik &#x1F4F7; om een barcode te scannen.</div>'
+      +'<div style="background:#F0F7F2;border-radius:10px;padding:10px 14px;font-size:11px;color:#4A8E7B;text-align:left;">'
+      +'<strong>Tips:</strong><br/>&#x2022; Voeg items toe met de + knop<br/>'
+      +'&#x2022; Scan een barcode met &#x1F4F7;<br/>'
+      +'&#x2022; Maak een foto met &#x1F37D; Foto AI</div>'
+      +'</div>'
+    :'<div class="empty">Nog niets genoteerd voor deze maaltijd</div>');
   var tHtml=ms.length?(!hasTmr?'<div class="timer-strip"><span style="font-size:14px">\u23F0</span><span class="ts-txt">Herinnering volgt automatisch 2.5u na je eerste hap</span></div>':'<div class="timer-strip"><span style="font-size:14px">\u23F1\uFE0F</span><span class="ts-txt">Herinnering om <strong>'+(S.timerFireAt[k]||'--:--')+'</strong> &mdash; nog:</span><span class="countdown" id="cd-'+k+'">'+cdTxt+'</span></div>'):'';
   var snHtml=ms.length?'<div class="snack-card"><div class="snack-tag">\uD83C\uDF4E Tussendoortje na '+c.label.toLowerCase()+'</div>'+(sn.length?sn.map(function(x,i){return '<div class="logged-item" style="background:#FFFCF0"><span class="li-text">'+x.t+'</span><div class="li-time-wrap"><span class="li-time-icon">\uD83D\uDD50</span><input type="text" class="li-time-edit" value="'+getTimeStr(x)+'" placeholder="HH:MM" maxlength="5" oninput="updateSnackTime(\''+k+'\','+i+',this.value)"/></div><span class="li-del" onclick="delSnack(\''+k+'\','+i+')">&times;</span></div>';}).join(''):'<div class="empty">Nog geen tussendoortje ingegeven</div>')+'<div class="input-row"><input type="time" class="add-time" id="snack-time-'+k+'" value="'+nowHHMM()+'" onfocus="this.value=nowHHMM()"/><input class="txt-in" id="snack-in-'+k+'" placeholder="bv. appel, nootjes..." onkeydown="if(event.key===\'Enter\')addSnack(\''+k+'\')" /><button class="btn-g btn-gold" onclick="addSnack(\''+k+'\')">+</button></div></div>':'';
   var _favList=getFavorites();
@@ -1089,7 +1100,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774344310',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774344994',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1872,6 +1883,7 @@ document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible' && S.user && S.screen === 'app'){
     startReminderCheck();
     checkMissedSnackPushes();
+    checkDailyReminderPush();
   }
 });
 
@@ -3209,6 +3221,7 @@ function restoreSession(){
         startReminderCheck();
         startDiarySync(S.user.email);
         setTimeout(startStepCounting, 2000);
+        scheduleDailyReminder();
         setTimeout(requestNotifPermission, 1000);
         render();
         return true;
@@ -3357,6 +3370,43 @@ function doClientChangePassword(){
   okEl.textContent='\u2713 Wachtwoord succesvol gewijzigd!';
   okEl.style.display='block';
   setTimeout(function(){var m=document.getElementById('chpwd-modal');if(m)m.remove();},2000);
+}
+
+function checkDailyReminderPush(){
+  if(!S.user||S.user.isAdmin)return;
+  var email=S.user.email;
+  var reminderKey='daily:reminder:sent:'+email+':'+today();
+  if(DB.get(reminderKey))return; // already sent today
+  // Check if user has filled in NOTHING today
+  var diaryToday=DB.get('diary:'+email+':'+today());
+  var hasToday=diaryToday&&diaryToday.meals&&
+    (((diaryToday.meals.morning||[]).length)+((diaryToday.meals.lunch||[]).length)+((diaryToday.meals.evening||[]).length))>0;
+  if(hasToday)return; // already filled in today, no reminder needed
+  // Check if it's after 19:00 local time
+  var now=new Date();
+  if(now.getHours()<19)return; // too early, schedule for 19:00
+  // Send push reminder
+  var sub=DB.get('push:sub:'+email);
+  if(sub&&typeof sendPushToClient==='function'){
+    DB.set(reminderKey,1);
+    sendPushToClient(sub,'Be Fit Marke \uD83C\uDF3F',
+      'Je hebt vandaag nog niets ingevuld. Even je maaltijden bijhouden?','daily-reminder');
+  }
+}
+function scheduleDailyReminder(){
+  if(!S.user||S.user.isAdmin)return;
+  // Schedule check at 19:00 today
+  var now=new Date();
+  var target=new Date();target.setHours(19,0,0,0);
+  if(target<=now)target.setDate(target.getDate()+1); // tomorrow if past 19:00
+  var msUntil=target.getTime()-now.getTime();
+  clearTimeout(S._dailyReminderTimeout);
+  S._dailyReminderTimeout=setTimeout(function(){
+    checkDailyReminderPush();
+    scheduleDailyReminder(); // reschedule for next day
+  },msUntil);
+  // Also check immediately if past 19:00
+  if(now.getHours()>=19)checkDailyReminderPush();
 }
 
 function render(){
