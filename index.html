@@ -1850,27 +1850,27 @@ setDarkMode(getDarkMode());
 
 // ── ONBOARDING ────────────────────────────────────────────────
 var ONBOARDING_STEPS=[
-  {icon:'??',title:'Welkom bij Be Fit Marke!',
+  {icon:'&#x1F4F1;',title:'Welkom bij Be Fit Marke!',
    text:'Je persoonlijk eetdagboekje, begeleid door je diëtiste Delphine.',
    tip:'Swipe door de rondleiding om alle functies te ontdekken.'},
-  {icon:'??',title:'Maaltijden bijhouden',
-   text:'Tik op Ontbijt, Middag of Avond. Typ wat je at, druk op +. Of scan een barcode ?? of maak een foto ??️ voor automatische herkenning.',
-   tip:'?? Tip: gebruik de ♥ knop om favoriete maaltijden te bewaren voor snel hergebruik!'},
-  {icon:'??',title:'Water bijhouden',
+  {icon:'&#x1F305;',title:'Maaltijden bijhouden',
+   text:'Tik op Ontbijt, Middag of Avond. Typ wat je at, druk op +. Of scan een barcode &#x1F4F7; of maak een foto &#x1F37D; voor automatische herkenning.',
+   tip:'&#x1F4A1; Tip: gebruik de &#x2665; knop om favoriete maaltijden te bewaren voor snel hergebruik!'},
+  {icon:'&#x1F4A7;',title:'Water bijhouden',
    text:'Tik op het Water-tabblad en gebruik de schuifbalk. Je dagdoel staat klaar — elk glas telt mee!',
-   tip:'?? Haal je doel meerdere dagen op rij voor een water streak!'},
-  {icon:'??',title:'Hoe voel je je?',
+   tip:'&#x1F525; Haal je doel meerdere dagen op rij voor een water streak!'},
+  {icon:'&#x1F31F;',title:'Hoe voel je je?',
    text:'Bij Gevoel kun je je honger, energie en stemming bijhouden. Dit helpt Delphine je beter te begeleiden.',
-   tip:'?? Probeer dit elke dag in te vullen voor de beste inzichten.'},
-  {icon:'??',title:'Analyse & inzichten',
+   tip:'&#x1F49A; Probeer dit elke dag in te vullen voor de beste inzichten.'},
+  {icon:'&#x1F4CA;',title:'Analyse & inzichten',
    text:'Bij Analyse zie je je weekoverzicht. Laat de AI je maaltijden analyseren voor voedingswaarden en tips!',
-   tip:'?? De AI-analyse werkt het best als je regelmatig invult.'},
-  {icon:'??',title:'Chat met Delphine',
+   tip:'&#x1F916; De AI-analyse werkt het best als je regelmatig invult.'},
+  {icon:'&#x1F4AC;',title:'Chat met Delphine',
    text:'Via de Chat-knop kun je rechtstreeks berichten sturen naar Delphine. Zij geeft ook feedback op je dagboek.',
-   tip:'?? Zet meldingen aan zodat je Delphines feedback meteen ontvangt!'},
-  {icon:'??',title:'Klaar om te starten!',
+   tip:'&#x1F514; Zet meldingen aan zodat je Delphines feedback meteen ontvangt!'},
+  {icon:'&#x1F44D;',title:'Klaar om te starten!',
    text:'Je dagboekje staat klaar. Vul vandaag je eerste maaltijd in — Delphine volgt mee!',
-   tip:'Succes met je Be Fit avontuur! ??'}
+   tip:'Succes met je Be Fit avontuur! &#x1F389;'}
 ];
 function isOnboardingDone(){return localStorage.getItem('befit:onboarding')==='done';}
 function markOnboardingDone(){localStorage.setItem('befit:onboarding','done');}
@@ -3183,6 +3183,8 @@ function exportWeekPDF(){
     S._startSection = section;
   }
 })();
+
+function finishOnboarding(){localStorage.setItem('befit:onboarding_done','1');localStorage.removeItem('befit:onboarding_step');}
 function render(){
   var app=document.getElementById('app');
 
