@@ -914,19 +914,58 @@ function renderAdminClient(c,i){
   var _diary=DB.get('diary:'+c.email+':'+_aDate)||{meals:{morning:[],lunch:[],evening:[]},water:0};
   var _dHasData=Object.values(_diary.meals||{}).some(function(m){return m.length>0;})||(_diary.water||0)>0;
   var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
-  // Meals of today
+  
+  // Weight evolution (last 8 entries)
+  var _wEvol='';
+  if(wlist&&wlist.length>0){
+    var _wRecent=wlist.slice(-8);
+    var _wMax=Math.max.apply(null,_wRecent.map(function(w){return w.kg||0;}));
+    var _wMin=Math.min.apply(null,_wRecent.map(function(w){return w.kg||0;}));
+    var _wRange=Math.max(_wMax-_wMin,1);
+    var _barW=Math.floor(100/_wRecent.length);
+    _wEvol='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#2A6030;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x2696;&#xFE0F; Gewichtsevolutie</div>'
+      +'<div style="display:flex;align-items:flex-end;gap:3px;height:60px;background:#F8FBF8;border-radius:8px;padding:6px 8px;">'
+      +_wRecent.map(function(w){
+        var pct=_wRange>0?Math.round(((w.kg-_wMin)/_wRange)*80)+10:50;
+        var col=wlist.indexOf(w)===wlist.length-1?'#2A6030':'#A8D4B8';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;" title="'+w.date+': '+w.kg+'kg">'
+          +'<div style="font-size:8px;color:#9E9580;">'+w.kg+'</div>'
+          +'<div style="width:100%;background:'+col+';border-radius:3px 3px 0 0;height:'+pct+'%;min-height:4px;"></div>'
+          +'<div style="font-size:7px;color:#9E9580;white-space:nowrap;overflow:hidden;max-width:30px;">'+w.date.slice(5)+'</div>'
+          +'</div>';
+      }).join('')
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-top:6px;">'
+      +'<div style="font-size:10px;color:#5A7A5C;">Min: <strong>'+_wMin+'kg</strong></div>'
+      +'<div style="font-size:10px;font-weight:700;color:#2A6030;">Huidig: <strong>'+_wRecent[_wRecent.length-1].kg+'kg</strong></div>'
+      +'<div style="font-size:10px;color:#5A7A5C;">Max: <strong>'+_wMax+'kg</strong></div>'
+      +'</div>'
+      +'</div>';
+  }
+// Meals of today
   var dm2=d&&d.meals?d.meals:{morning:[],lunch:[],evening:[]};
   var mealLabels={morning:'🌅 Ontbijt',lunch:'☀️ Middagmaal',evening:'🌙 Avondmaal'};
   var mealColors2={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
   var mealRows=['morning','lunch','evening'].map(function(k){
     var items=(_diary.meals||{})[k]||[];
     if(!items.length)return '';
-    return '<div style="margin-bottom:8px;">'
+    var _fb=loadFeedback(c.email,_aDate);
+    var _fbVal=(_fb&&_fb[k])||'';
+    return '<div style="margin-bottom:10px;">'
       +'<div style="font-size:10px;font-weight:700;color:'+mealColors2[k]+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+mealLabels[k]+'</div>'
       +items.map(function(it){return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #F5F0E6;">'
         +'<span style="font-size:11px;color:#1E3D20;flex:1;">'+it.t+'</span>'
         +(it.timeStr?'<span style="font-size:10px;color:#9E9580;">'+it.timeStr+'</span>':'')
         +'</div>';}).join('')
+      +'<div style="margin-top:6px;">'
+      +'<div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">&#x1F4DD; Commentaar Delphine</div>'
+      +'<div style="display:flex;gap:6px;align-items:flex-start;">'
+      +'<textarea onclick="event.stopPropagation()" id="fb-'+k+'-'+i+'" rows="2" placeholder="Geef feedback op deze maaltijd..." '
+      +'style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:11px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;resize:none;outline:none;">'+_fbVal+'</textarea>'
+      +'<button onclick="event.stopPropagation();var v=document.getElementById(\'fb-'+k+'-'+i+'\').value;saveFeedbackMeal(\''+c.email+'\',\''+_aDate+'\',\''+k+'\',v);showToast(\'&#x2713; Feedback opgeslagen\');" '
+      +'style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:Lato,sans-serif;">Opslaan</button>'
+      +'</div></div>'
       +'</div>';
   }).join('');
   var snackRows=['morning','lunch','evening'].map(function(k){
@@ -1014,7 +1053,7 @@ function renderAdminClient(c,i){
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
     +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+'</div>':'')
-    +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+chatSec:'')
+    +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+_wEvol+chatSec:'')
     +(status==='rejected'?aBtns:'')
     +'</div></div>';
 }
@@ -1037,7 +1076,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774332188',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774334889',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
