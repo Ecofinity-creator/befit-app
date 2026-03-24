@@ -374,7 +374,7 @@ function startDiarySync(email){
 }
 
 
-var S={screen:'login',adminDates:{},user:null,showGroupMsg:false,groupMsgSelected:[],tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
+var S={screen:'login',adminDates:{},user:null,showGroupMsg:false,groupMsgSelected:[],adminFilterInactive:false,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -702,7 +702,7 @@ function renderAdminBroadcasts(){
 
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
-      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="S.adminFilterInactive=!S.adminFilterInactive;render()" style="background:'+(S.adminFilterInactive?'#C0392B':'#F0EAD6')+';color:'+(S.adminFilterInactive?'#fff':'#C0392B')+';border:1px solid #C0392B;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;" title="Filter inactieve klanten">&#x1F6D1; Inactief</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week','qr'].includes(S.adminTab)){
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
@@ -978,6 +978,23 @@ function renderAdminClient(c,i){
     :status==='approved'
     ?'<div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();if(confirm(\'Verwijderen?\'))deleteClient(\''+c.email+'\')" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
     :'<div style="margin-top:8px;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
+  var _notesOpen=sessionStorage.getItem('notes-open:'+c.email)==='1';
+  var _notesVal=getClientNotes(c.email);
+  var _notesHtml='<div style="margin-top:6px;">'
+    +'<button onclick="toggleClientNotes(\''+c.email+'\')" '
+    +'style="background:none;border:none;color:#9E9580;font-size:11px;cursor:pointer;padding:0;">'
+    +(_notesOpen?'▲':'▼')+' Mijn notities (privé)</button>'
+    +(_notesOpen
+      ?'<div style="margin-top:6px;">'
+        +'<textarea id="notes-ta" '
+        +'rows="3" placeholder="Persoonlijke notities over deze klant..." '
+        +'onchange="saveClientNotes(\''+c.email+'\',this.value)" '
+        +'style="width:100%;border:1px solid #DDD4C0;border-radius:8px;padding:8px;font-size:12px;'
+        +'font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;resize:vertical;box-sizing:border-box;">'
+        +_notesVal+'</textarea></div>'
+      :'')
+    +'</div>';
+
   return '<div class="admin-client-card" onclick="S.adminOpen=S.adminOpen==='+i+'?null:'+i+';if(S.adminOpen)fetchClientAnalyse(S.adminOpen);else render()">'
     +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:13px;font-weight:700;color:#1E3D20;flex:1">'+c.email+'</div>'+sBadge+_inactiveBadge+_compBadge+'</div>'
     +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
@@ -996,7 +1013,7 @@ function renderAdminClient(c,i){
     +(status==='pending'?aBtns:'')
     +'<div class="admin-client-detail '+(open?'open':'')+'" onclick="event.stopPropagation()">'
     +buildAdminDateNav(c.email,_aDate)
-    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+'</div>':'')
+    +((status!=='rejected'&&det)?'<div style="margin-bottom:4px;">'+det+_notesHtml+'</div>':'')
     +(status==='approved'?aBtns+mealSec+goalSec+anlSec+fatSec+chatSec:'')
     +(status==='rejected'?aBtns:'')
     +'</div></div>';
@@ -1020,7 +1037,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774301456',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774331890',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1212,7 +1229,7 @@ function analyseBlock(){
         +'</div>';
     }).join('')
     +'</div>'
-    +'<button onclick="generateWeekReport()" style="width:100%;background:#F0EAD6;color:#1E3D20;border:1px solid #DDD4C0;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Stuur weekrapport via e-mail</button>'
+    +'<button onclick="generateWeekReport()" style="width:100%;background:#F0EAD6;color:#1E3D20;border:1px solid #DDD4C0;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Stuur weekrapport via e-mail</button>'+'<button onclick="exportWeekPDF()" style="background:#C9A84C;color:#1E3D20;border:none;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F4CB; PDF exporteren</button>'
     +'</div>'
     :'';
 
@@ -1839,16 +1856,35 @@ function onboardingOverlay(){
       :'<button onclick="setOnboardingStep('+(step+1)+');render()" style="flex:2;background:#4A8E7B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Volgende \u2192</button>')
     +'</div></div></div>';
 }
-function isDarkMode(){return localStorage.getItem('befit:dark')==='1';}
+function isDarkMode(){return localStorage.getItem('befit:darkmode')==='1'||localStorage.getItem('darkMode')==='1';}
 function toggleDarkMode(){
-  var on=isDarkMode();
-  localStorage.setItem('befit:dark',on?'0':'1');
-  document.body.classList.toggle('dark',!on);
-  var btn=document.getElementById('dark-toggle-btn');
-  if(btn)btn.textContent=on?'🌙':'☀️';
+  var on = !isDarkMode();
+  localStorage.setItem('befit:darkmode', on ? '1' : '0'); // explicit user preference
+  setDarkMode(on);
+  render();
 }
 // Apply dark mode on load
 if(isDarkMode())document.body.classList.add('dark');
+
+// Auto dark mode: follow system preference if user hasn't manually overridden
+(function(){
+  var stored = localStorage.getItem('darkMode');
+  if(stored === null) {
+    // No manual preference set - follow system
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if(prefersDark) setDarkMode(true);
+  }
+  // Listen for system changes
+  if(window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+      // Only auto-switch if user hasn't set a manual preference
+      if(localStorage.getItem('befit:darkmode') === null) {
+        setDarkMode(e.matches);
+      }
+    });
+  }
+})();
+
 function fetchClientAnalyse(email){
   if(!email)return;
   S.adminLoadingAnalyse=email;
@@ -3008,6 +3044,84 @@ function restoreSession(){
     }
   }catch(e){}
   return false;
+}
+
+function getClientNotes(email){return DB.get('notes:'+email)||'';}
+function saveClientNotes(email,text){
+  DB.set('notes:'+email,text);
+  if(fsdb&&typeof fsKey==='function'){
+    fsdb.collection('data').doc(fsKey('notes:'+email)).set({v:JSON.stringify(text)}).catch(function(){});
+  }
+}
+function toggleClientNotes(email){
+  var key='notes-open:'+email;
+  var open=sessionStorage.getItem(key)==='1';
+  sessionStorage.setItem(key, open?'0':'1');
+  render();
+}
+
+function exportWeekPDF(){
+  var email=S.user.email,name=S.user.name||email;
+  var days=[],totalKcal=0,totalWater=0,totalMov=0;
+  for(var i=6;i>=0;i--){
+    var d=new Date();d.setDate(d.getDate()-i);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var diary=DB.get('diary:'+email+':'+ds)||{};
+    var meals=diary.meals||{morning:[],lunch:[],evening:[]};
+    var allItems=[];
+    ['morning','lunch','evening'].forEach(function(k){(meals[k]||[]).forEach(function(i){allItems.push(i.t);});});
+    var water=(diary.water||0)*0.25;
+    var mov=(diary.activities||[]).reduce(function(s,a){return s+(a.dur||0);},0);
+    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+    var snacks=[];
+    ['morning','lunch','evening'].forEach(function(k){(diary.snacks&&diary.snacks[k]||[]).forEach(function(i){snacks.push(i.t);});});
+    days.push({label:dLabel,items:allItems,snacks:snacks,water:water,mov:mov});
+    totalWater+=water;totalMov+=mov;
+  }
+  var today=new Date().toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'});
+  var html='<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"/>'
+    +'<title>Weekrapport '+name+'</title>'
+    +'<style>'
+    +'body{font-family:Georgia,serif;color:#1E3D20;max-width:800px;margin:0 auto;padding:24px;}'
+    +'h1{color:#1E3D20;border-bottom:3px solid #C9A84C;padding-bottom:8px;}'
+    +'h2{color:#2A6030;font-size:14px;margin:16px 0 4px;}'
+    +'.day{border:1px solid #DDD4C0;border-radius:8px;padding:12px;margin:10px 0;page-break-inside:avoid;}'
+    +'.day-title{font-weight:bold;color:#1E3D20;font-size:13px;border-bottom:1px solid #EAE2D0;padding-bottom:4px;margin-bottom:8px;}'
+    +'.items{font-size:12px;color:#333;}'
+    +'.meta{font-size:11px;color:#4A8E7B;margin-top:6px;}'
+    +'.summary{background:#F0F7F2;border-radius:8px;padding:12px;margin:16px 0;}'
+    +'@media print{.no-print{display:none;}body{padding:0;}}'
+    +'</style></head><body>'
+    +'<div class="no-print" style="margin-bottom:16px;">'
+    +'<button onclick="window.print()" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;margin-right:10px;">&#x1F4BE; Opslaan als PDF</button>'
+    +'<button onclick="window.close()" style="background:#EEE;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Sluiten</button>'
+    +'</div>'
+    +'<h1>Weekrapport Be Fit Marke</h1>'
+    +'<p style="color:#666;font-size:13px;">'+name+' &mdash; Gegenereerd op '+today+'</p>'
+    +'<div class="summary"><strong>Weekoverzicht:</strong> '
+    +totalWater.toFixed(1)+'L water &nbsp;|&nbsp; '+totalMov+' min beweging</div>';
+  days.forEach(function(day){
+    html+='<div class="day">'
+      +'<div class="day-title">'+day.label+'</div>';
+    if(day.items.length){
+      html+='<div class="items"><strong>Maaltijden:</strong><ul style="margin:4px 0;padding-left:18px;">'
+        +day.items.map(function(i){return '<li>'+i+'</li>';}).join('')
+        +'</ul></div>';
+    }else{
+      html+='<div class="items" style="color:#999;font-style:italic;">Geen maaltijden ingegeven</div>';
+    }
+    if(day.snacks.length){
+      html+='<div class="items" style="margin-top:4px;"><strong>Tussendoortjes:</strong> '+day.snacks.join(', ')+'</div>';
+    }
+    html+='<div class="meta">'+day.water.toFixed(1)+'L water &nbsp;&bull;&nbsp; '+day.mov+' min beweging</div>'
+      +'</div>';
+  });
+  html+='<p style="font-size:10px;color:#999;text-align:center;margin-top:24px;border-top:1px solid #EEE;padding-top:8px;">'
+    +'Powered by <strong>Verdify</strong> &mdash; Be Fit Marke &copy; '+new Date().getFullYear()+'</p>'
+    +'</body></html>';
+  var win=window.open('','_blank','width=850,height=700');
+  if(win){win.document.write(html);win.document.close();}
+  else{showToast('\u274C Pop-up geblokkeerd. Sta pop-ups toe voor deze site.');}
 }
 function render(){
   var app=document.getElementById('app');
