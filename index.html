@@ -1100,7 +1100,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774346679',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774347349',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -3196,14 +3196,17 @@ function buildMealInput(k,ph){
 }
 
 async function sendPushToClient(subscription, title, body, tag){
-  try{
-    var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
-    await fetch(backendUrl+'/api/send-push',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
-    });
-  }catch(e){console.warn('Push failed:',e.message);}
+  var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
+  var resp=await fetch(backendUrl+'/api/send-push',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
+  });
+  if(!resp.ok){
+    var errText=await resp.text().catch(function(){return resp.status+'';});
+    throw new Error('Vercel '+resp.status+': '+errText.slice(0,100));
+  }
+  return resp;
 }
 
 function saveSession(){
@@ -3338,35 +3341,33 @@ function syncFeedbackFromFirestore(email, date){
   }).catch(function(){});
 }
 function sendTestPush(email,i){
-  var sub=DB.get('push:sub:'+email);
-  if(!sub){
-    // Try loading from Firestore first
-    if(fsdb&&typeof fsKey==='function'){
-      var btn=document.getElementById('tpb-'+i);
-      if(btn){btn.textContent='Laden...';btn.disabled=true;}
-      fsdb.collection('data').doc(fsKey('push:sub:'+email)).get().then(function(snap){
-        if(snap.exists&&snap.data()&&snap.data().v){
-          var loadedSub=JSON.parse(snap.data().v);
-          DB.set('push:sub:'+email,loadedSub);
-          sendTestPush(email,i); // retry
-        } else {
+  var btn=document.getElementById('tpb-'+i);
+  // Always load fresh from Firestore first
+  if(fsdb&&typeof fsKey==='function'){
+    if(btn){btn.textContent='Laden...';btn.disabled=true;}
+    fsdb.collection('data').doc(fsKey('push:sub:'+email)).get().then(function(snap){
+      if(snap.exists&&snap.data()&&snap.data().v){
+        var loadedSub=JSON.parse(snap.data().v);
+        DB.set('push:sub:'+email,loadedSub);
+        _doSendTestPush(loadedSub,email,btn);
+      } else {
+        var localSub=DB.get('push:sub:'+email);
+        if(localSub){_doSendTestPush(localSub,email,btn);}
+        else{
           if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}
-          showToast('\u274C Geen push-abonnement. Vraag de klant om de app te openen en meldingen toe te staan.');
+          showToast('\u274C Klant heeft meldingen nog niet ingesteld. Vraag de klant om:\n1. De app te openen\n2. Meldingen toe te staan');
         }
-      }).catch(function(){
-        if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}
-        showToast('\u274C Geen push-abonnement gevonden.');
-      });
-      return;
-    }
-    showToast('\u274C Geen push-abonnement. Vraag de klant om meldingen toe te staan.');
+      }
+    }).catch(function(e){
+      var localSub=DB.get('push:sub:'+email);
+      if(localSub){_doSendTestPush(localSub,email,btn);}
+      else{if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}showToast('\u274C Firestore fout: '+e.message);}
+    });
     return;
   }
-  var btn=document.getElementById('tpb-'+i);
-  if(btn){btn.textContent='...';btn.disabled=true;}
-  sendPushToClient(sub,'Be Fit Marke \uD83C\uDF3F','Test bericht \u2014 alles werkt! \u2705','test')
-    .then(function(){showToast('\u2713 Test push verstuurd');if(btn){btn.textContent='\u2713 OK';setTimeout(function(){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;},3000);}})
-    .catch(function(e){showToast('\u274C '+e.message);if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}});
+  var sub=DB.get('push:sub:'+email);
+  if(!sub){showToast('\u274C Geen push-abonnement gevonden.');return;}
+  _doSendTestPush(sub,email,btn);
 }
 
 function showChangePasswordModal(){
@@ -3435,6 +3436,17 @@ function scheduleDailyReminder(){
   if(now.getHours()>=19)checkDailyReminderPush();
 }
 
+function _doSendTestPush(sub,email,btn){
+  sendPushToClient(sub,'Be Fit Marke ??','Test bericht — push werkt! ✅','test')
+    .then(function(){
+      showToast('✓ Test push verstuurd naar '+email);
+      if(btn){btn.textContent='✓ OK';setTimeout(function(){btn.textContent='?? Test push';btn.disabled=false;},3000);}
+    })
+    .catch(function(e){
+      if(btn){btn.textContent='?? Test push';btn.disabled=false;}
+      showToast('❌ Push mislukt: '+e.message+'. Controleer Vercel logs.');
+    });
+}
 function render(){
   var app=document.getElementById('app');
 
