@@ -485,7 +485,7 @@ function doLogin(){
     S.snacks={morning:[],lunch:[],evening:[]};
     S.water=0;S.reminders=[];
     loadUserData();S.screen='app';
-    saveSession();if(S._startTab){S.tab=S._startTab;}startReminderCheck();render();requestNotifPermission();setTimeout(startStepCounting,1500);
+    saveSession();if(S._startTab){S.tab=S._startTab;}startReminderCheck();checkMissedSnackPushes();render();requestNotifPermission();setTimeout(startStepCounting,1500);
     syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
     startDiarySync(email);
   }
@@ -1084,7 +1084,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774338345',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774340969',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1794,11 +1794,20 @@ function startStepCounting(){
     showToast("\u274C Stappenteller niet beschikbaar");return;
   }
   function go(){
-    var lastMag=0,lastStep=0,buf=[],threshold=2.5;
+    var lastMag=0,lastStep=0,buf=[],threshold=1.2;
     _stepListener=function(e){
-      var acc=e.acceleration||e.accelerationIncludingGravity;
+      // Try pure acceleration first (no gravity), more reliable for step detection
+      var acc=e.acceleration;
+      var usingGravity=false;
+      if(!acc||acc.x==null||acc.x===0&&acc.y===0&&acc.z===0){
+        acc=e.accelerationIncludingGravity;usingGravity=true;
+      }
       if(!acc||acc.x==null)return;
-      var mag=Math.sqrt((acc.x||0)*(acc.x||0)+(acc.y||0)*(acc.y||0)+(acc.z||0)*(acc.z||0));
+      var x=acc.x||0,y=acc.y||0,z=acc.z||0;
+      // For gravity-inclusive data, subtract gravity component (approx 9.8)
+      var mag=usingGravity
+        ?Math.abs(Math.sqrt(x*x+y*y+z*z)-9.8)
+        :Math.sqrt(x*x+y*y+z*z);
       buf.push(mag);if(buf.length>4)buf.shift();
       var avg=buf.reduce(function(s,v){return s+v;},0)/buf.length;
       var delta=Math.abs(avg-lastMag);lastMag=avg;
@@ -1849,6 +1858,7 @@ window.addEventListener('online',updateOnlineStatus);
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible' && S.user && S.screen === 'app'){
     startReminderCheck();
+    checkMissedSnackPushes();
   }
 });
 
@@ -2821,7 +2831,54 @@ function delSnack(k,i){S.snacks[k].splice(i,1);saveUserData();render();}
 function updateSnackTime(k,i,val){S.snacks[k][i].timeStr=val;saveUserData();}
 function addReminder(){var desc=document.getElementById('rem-desc'),time=document.getElementById('rem-time'),v=(desc.value||'').trim();if(!v)return;S.reminders.push({time:time.value,desc:v});desc.value='';saveUserData();render();}
 function delReminder(i){S.reminders.splice(i,1);saveUserData();render();}
-function startTimer(k){var ms=S.meals[k];if(!ms.length)return;var parts=getTimeStr(ms[0]).split(':');var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);fd=new Date(fd.getTime()+9000000);S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));S.timers[k]=true;render();}
+function startTimer(k){
+  var ms=S.meals[k];if(!ms.length)return;
+  var parts=getTimeStr(ms[0]).split(':');
+  var fd=new Date();fd.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);
+  fd=new Date(fd.getTime()+9000000); // 2.5 hours
+  S.timerFireAt[k]=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');
+  S.cds[k]=Math.max(0,Math.round((fd-Date.now())/1000));
+  S.timers[k]=true;
+  // Store fire time in localStorage so we can recover after app sleep
+  if(S.user){
+    var snackKey='snack:pending:'+S.user.email+':'+k;
+    DB.set(snackKey,{fireAt:fd.getTime(),meal:k,sent:false});
+  }
+  // Schedule via setTimeout (works when app is active/foreground)
+  var msLeft=Math.max(0,fd.getTime()-Date.now());
+  clearTimeout(S._snackTimeout&&S._snackTimeout[k]);
+  if(!S._snackTimeout)S._snackTimeout={};
+  S._snackTimeout[k]=setTimeout(function(){fireSnackPush(k);},msLeft);
+  render();
+}
+function fireSnackPush(k){
+  if(!S.user)return;
+  var snackKey='snack:pending:'+S.user.email+':'+k;
+  var pending=DB.get(snackKey);
+  if(!pending||pending.sent)return;
+  pending.sent=true;DB.set(snackKey,pending);
+  var mealLabel=k==='morning'?'ontbijt':k==='lunch'?'middagmaal':'avondmaal';
+  var title='Be Fit Marke';
+  var msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+mealLabel+'!';
+  // Local notification
+  if(Notification.permission==='granted')localNotif(title,msg,'snack-'+k);
+  // Push via Vercel (works even if app was in background)
+  var sub=DB.get('push:sub:'+S.user.email);
+  if(sub&&typeof sendPushToClient==='function')sendPushToClient(sub,title,msg,'snack-'+k);
+  if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);
+  showNotif(msg);
+  S.timers[k]=false;S.cds[k]=0;render();
+}
+function checkMissedSnackPushes(){
+  // Called on app resume - send any overdue snack pushes
+  if(!S.user)return;
+  ['morning','lunch','evening'].forEach(function(k){
+    var pending=DB.get('snack:pending:'+S.user.email+':'+k);
+    if(pending&&!pending.sent&&Date.now()>=pending.fireAt){
+      fireSnackPush(k);
+    }
+  });
+}
 function setWater(val){var n=parseFloat(val);if(isNaN(n)||n<0)return;S.water=n;saveUserData();render();}
 function saveFeedbackMeal(email,date,meal,text){var key='feedback:'+email+':'+date,ex=DB.get(key)||{};ex[meal]=text;ex.ts=Date.now();ex.adminName=S.user?S.user.name:'';DB.set(key,ex);
   // Sync to Firestore so client can see it
