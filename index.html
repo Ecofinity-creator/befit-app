@@ -1098,9 +1098,9 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
     +'</div>';
 }
 
-const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
+const VAPID_PUBLIC='BEAyf-GldiNn5xkuXFFl6dLqaICQii6aQS7PWDHw-eU6rxI2Zc9-_RtvtzXzzIo2X2XAZnOHj7HxLd9YHuBxH_0';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774347349',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774348586',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1154,7 +1154,7 @@ async function requestNotifPermission(){
     if(S.user){
       subscribePush().then(function(sub){ // always refresh subscription
         if(sub&&S.user){
-          var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
+          var backendUrl=DB.get('push:backend:url')||'https://befit-backend-teal.vercel.app';
           fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({email:S.user.email,subscription:sub})
           }).catch(function(){});
@@ -1171,8 +1171,8 @@ async function requestNotifPermission(){
           localNotif('Be Fit Marke ✅','Meldingen ingeschakeld!','welcome');
           subscribePush().then(function(sub){
             if(sub&&S.user){
-              DB.set('push:backend:url','https://befit-backend-3wkd.vercel.app');
-              var backendUrl='https://befit-backend-3wkd.vercel.app';
+              DB.set('push:backend:url','https://befit-backend-teal.vercel.app');
+              var backendUrl='https://befit-backend-teal.vercel.app';
               fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({email:S.user.email,subscription:sub})
               }).catch(function(){});
@@ -3196,15 +3196,24 @@ function buildMealInput(k,ph){
 }
 
 async function sendPushToClient(subscription, title, body, tag){
-  var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
+  var backendUrl='https://befit-backend-teal.vercel.app';
   var resp=await fetch(backendUrl+'/api/send-push',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({subscription:subscription,title:title,body:body,tag:tag||'befit'})
   });
   if(!resp.ok){
-    var errText=await resp.text().catch(function(){return resp.status+'';});
-    throw new Error('Vercel '+resp.status+': '+errText.slice(0,100));
+    var errText='';
+    try{var j=await resp.json();errText=j.error||resp.status+'';}catch(x){errText=resp.status+'';}
+    if(resp.status===410||resp.status===404){
+      // Subscription expired - clear it so user re-subscribes
+      if(S.user)DB.del('push:sub:'+S.user.email);
+      throw new Error('Abonnement verlopen ('+resp.status+'). Klant moet app opnieuw openen.');
+    }
+    if(resp.status===500&&errText.includes('VAPID_PRIVATE_KEY')){
+      throw new Error('VAPID_PRIVATE_KEY niet ingesteld in Vercel. Zie instructies.');
+    }
+    throw new Error(errText||resp.status+'');
   }
   return resp;
 }
