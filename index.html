@@ -1100,7 +1100,7 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BJoNsaWDe1tjHP5afxOdW7M2iEiQDtDKHJLmlQmsO3Y8EcGI7TVYZX9SyUoJfSUkgInuWEw1DvRxgb_md13xo5M';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774346089',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1774346679',{updateViaCache:'none'}).then(function(reg){
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1142,13 +1142,17 @@ if(navigator.serviceWorker) {
 }
 
 function urlB64ToUint8(b64){var pad='='.repeat((4-b64.length%4)%4),base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(base),arr=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
-async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});DB.set('push:sub:'+S.user.email,JSON.parse(JSON.stringify(sub)));return sub;}catch(e){return null;}}
+async function subscribePush(){if(!('PushManager' in window))return null;try{var reg=await navigator.serviceWorker.ready;var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});var subJson=JSON.parse(JSON.stringify(sub));DB.set('push:sub:'+S.user.email,subJson);// Sync to Firestore so admin can use it from their device
+if(fsdb&&typeof fsKey==='function'){
+  fsdb.collection('data').doc(fsKey('push:sub:'+S.user.email)).set({v:JSON.stringify(subJson)}).catch(function(){});
+}
+return subJson;}catch(e){console.warn('subscribePush error:',e);return null;}}
 async function requestNotifPermission(){
   if(!('Notification' in window))return;
   if(Notification.permission==='granted'){
     // Already granted - ensure we have push subscription
-    if(S.user&&!DB.get('push:sub:'+S.user.email)){
-      subscribePush().then(function(sub){
+    if(S.user){
+      subscribePush().then(function(sub){ // always refresh subscription
         if(sub&&S.user){
           var backendUrl=DB.get('push:backend:url')||'https://befit-backend-3wkd.vercel.app';
           fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3335,7 +3339,29 @@ function syncFeedbackFromFirestore(email, date){
 }
 function sendTestPush(email,i){
   var sub=DB.get('push:sub:'+email);
-  if(!sub){showToast('\u274C Geen push-abonnement voor deze klant. Vraag de klant om meldingen toe te staan.');return;}
+  if(!sub){
+    // Try loading from Firestore first
+    if(fsdb&&typeof fsKey==='function'){
+      var btn=document.getElementById('tpb-'+i);
+      if(btn){btn.textContent='Laden...';btn.disabled=true;}
+      fsdb.collection('data').doc(fsKey('push:sub:'+email)).get().then(function(snap){
+        if(snap.exists&&snap.data()&&snap.data().v){
+          var loadedSub=JSON.parse(snap.data().v);
+          DB.set('push:sub:'+email,loadedSub);
+          sendTestPush(email,i); // retry
+        } else {
+          if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}
+          showToast('\u274C Geen push-abonnement. Vraag de klant om de app te openen en meldingen toe te staan.');
+        }
+      }).catch(function(){
+        if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}
+        showToast('\u274C Geen push-abonnement gevonden.');
+      });
+      return;
+    }
+    showToast('\u274C Geen push-abonnement. Vraag de klant om meldingen toe te staan.');
+    return;
+  }
   var btn=document.getElementById('tpb-'+i);
   if(btn){btn.textContent='...';btn.disabled=true;}
   sendPushToClient(sub,'Be Fit Marke \uD83C\uDF3F','Test bericht \u2014 alles werkt! \u2705','test')
