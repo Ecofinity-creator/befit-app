@@ -257,6 +257,15 @@ function logoSVG(size){
 function logoBlock(w,fs){return logoSVG(w||180);}
 const ADMINS=[{email:'delphine@be-fit.be',defaultPass:'befit2024',name:'Di\u00ebtiste Delphine'}];
 const SUPER_ADMIN='delphine@be-fit.be';
+// Zorg dat admin altijd kan inloggen met default wachtwoord als er geen override is
+setTimeout(function(){
+  ADMINS.forEach(function(a){
+    if(!localStorage.getItem('adminpass:'+a.email)){
+      // Geen overschreven wachtwoord - default blijft geldig via getAdminPass()
+      // Dit is enkel een check, geen actieve reset
+    }
+  });
+},100);
 const SYSTEM_ADMIN='info@ecofinity.eu';
 const SYSTEM_PASS='Ecofinity2024!';
 function getAdminPass(e){return DB.get('adminpass:'+e)||(ADMINS.find(function(a){return a.email===e;})||{}).defaultPass;}
@@ -999,8 +1008,9 @@ function renderAdminClient(c,i){
   if(wlist&&wlist.length>0){
     var _wRecent=wlist.filter(function(w){return w.kg!=null&&w.kg>0;}).slice(-8);
     if(!_wRecent.length){_wEvol='';}
-    var _wMax=_wRecent.length?Math.max.apply(null,_wRecent.map(function(w){return w.kg;})):0;
-    var _wMin=_wRecent.length?Math.min.apply(null,_wRecent.map(function(w){return w.kg;})):0;
+    else{
+    var _wMax=Math.max.apply(null,_wRecent.map(function(w){return w.kg;}));
+    var _wMin=Math.min.apply(null,_wRecent.map(function(w){return w.kg;}));
     var _wRange=Math.max(_wMax-_wMin,1);
     var _barW=Math.floor(100/_wRecent.length);
     _wEvol='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
@@ -1011,6 +1021,7 @@ function renderAdminClient(c,i){
       +'<div style="font-size:10px;font-weight:700;color:#2A6030;">Huidig: <strong>'+_wRecent[_wRecent.length-1].kg+'kg</strong></div>'
       +'<div style="font-size:10px;color:#5A7A5C;">Max: <strong>'+_wMax+'kg</strong></div>'
       +'</div>'
+    } // end else _wRecent.length
       +'</div>';
   }
 // Meals of today
