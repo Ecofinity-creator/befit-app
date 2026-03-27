@@ -1807,32 +1807,44 @@ function progressPhotosBlock(){
 }
 
 // ── STAPPENTELLER ─────────────────────────────────────────────
-var _stepCount=0,_stepListener=null,_lastAcc=0;
+var _stepCount=0,_stepListener=null;
+// Gravity low-pass filter state (Android fallback)
+var _gX=0,_gY=0,_gZ=9.8,_GALPHA=0.85;
 function startStepCounting(){
   if(_stepListener)return;
   if(!window.DeviceMotionEvent){
-    showToast("\u274C Stappenteller niet beschikbaar");return;
+    showToast("\u274C Stappenteller niet beschikbaar op dit toestel");return;
   }
   function go(){
-    var lastMag=0,lastStep=0,buf=[],threshold=1.2;
+    var buf=[],lastStep=0;
+    var THRESHOLD=2.5;  // m/s² boven lopend gemiddelde = stap
+    var COOLDOWN=420;   // ms minimum tussen 2 stappen
+    _gX=0;_gY=0;_gZ=9.8;
     _stepListener=function(e){
-      // Try pure acceleration first (no gravity), more reliable for step detection
-      var acc=e.acceleration;
-      var usingGravity=false;
-      if(!acc||acc.x==null||acc.x===0&&acc.y===0&&acc.z===0){
-        acc=e.accelerationIncludingGravity;usingGravity=true;
+      var x,y,z;
+      // 1) Pure lineaire versnelling (iOS + nieuwere Android) - geen zwaartekracht
+      var la=e.acceleration;
+      var hasClean=la&&la.x!=null&&la.y!=null&&la.z!=null&&
+                   !(la.x===0&&la.y===0&&la.z===0);
+      if(hasClean){
+        x=la.x;y=la.y;z=la.z;
+      } else {
+        // 2) Fallback: AccelerationIncludingGravity + high-pass filter (Android)
+        var ag=e.accelerationIncludingGravity;
+        if(!ag||ag.x==null||ag.y==null||ag.z==null)return;
+        // Low-pass filter -> gravity
+        _gX=_GALPHA*_gX+(1-_GALPHA)*ag.x;
+        _gY=_GALPHA*_gY+(1-_GALPHA)*ag.y;
+        _gZ=_GALPHA*_gZ+(1-_GALPHA)*ag.z;
+        // High-pass -> lineaire versnelling
+        x=ag.x-_gX; y=ag.y-_gY; z=ag.z-_gZ;
       }
-      if(!acc||acc.x==null)return;
-      var x=acc.x||0,y=acc.y||0,z=acc.z||0;
-      // For gravity-inclusive data, subtract gravity component (approx 9.8)
-      var mag=usingGravity
-        ?Math.abs(Math.sqrt(x*x+y*y+z*z)-9.8)
-        :Math.sqrt(x*x+y*y+z*z);
-      buf.push(mag);if(buf.length>4)buf.shift();
+      var mag=Math.sqrt(x*x+y*y+z*z);
+      buf.push(mag);if(buf.length>10)buf.shift();
       var avg=buf.reduce(function(s,v){return s+v;},0)/buf.length;
-      var delta=Math.abs(avg-lastMag);lastMag=avg;
       var now=Date.now();
-      if(delta>threshold&&now-lastStep>350){
+      // Stap = piek duidelijk boven lopend gemiddelde + minimale rustperiode
+      if(mag>avg+THRESHOLD&&now-lastStep>COOLDOWN){
         _stepCount++;lastStep=now;
         var el=document.getElementById("step-count-display");
         if(el)el.textContent=_stepCount+" stappen";
@@ -1843,11 +1855,15 @@ function startStepCounting(){
     showToast("\uD83D\uDC5F Stappenteller actief");
   }
   if(typeof DeviceMotionEvent.requestPermission==="function"){
+    // iOS 13+: expliciete toestemming vereist via gebruikersactie
     DeviceMotionEvent.requestPermission().then(function(r){
       if(r==="granted")go();
-      else showToast("\u274C Toestemming geweigerd");
+      else showToast("\u274C Toestemming geweigerd voor bewegingssensor");
     }).catch(function(){go();});
-  }else go();
+  }else{
+    // Android + andere browsers: geen expliciete toestemming nodig
+    go();
+  }
 }
 function stopStepCounting(){if(_stepListener){window.removeEventListener('devicemotion',_stepListener);_stepListener=null;}render();}
 function getTodaySteps(){return DB.get('steps:'+S.user.email+':'+today())||0;}
@@ -2652,8 +2668,10 @@ async function openBarcodeAnalyse(){
 }
 async function _startBarcodeAnalyseScan(){
   try{
-    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     var video=document.getElementById('barcode-video');
+    if(!video.hasAttribute('playsinline'))video.setAttribute('playsinline','');
+    if(!video.hasAttribute('muted')){video.muted=true;}
     video.srcObject=_barcodeStream;await video.play();
     var sEl=document.getElementById('barcode-status');
     if('BarcodeDetector' in window){
@@ -2740,8 +2758,10 @@ async function _runBarcodeAnalyse(barcode){
 
 async function _restartBarcodeAnalyse(){
   try{
-    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    _barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     var video=document.getElementById('barcode-video');
+    if(!video.hasAttribute('playsinline'))video.setAttribute('playsinline','');
+    if(!video.hasAttribute('muted')){video.muted=true;}
     video.srcObject=_barcodeStream;await video.play();
     var sEl=document.getElementById('barcode-status');
     if('BarcodeDetector' in window){
