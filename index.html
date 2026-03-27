@@ -585,7 +585,7 @@ function mealBlock(k){
   var cdTxt=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
   var dotColors={morning:'#C9A84C',lunch:'#2A6030',evening:'#3A8FBD'};
   var dc=dotColors[k];
-  var fb=S.user?loadFeedback(S.user.email,today()):{};
+  var fb=S.user?loadFeedback(S.user.email,getMealDate()):{};  // FIX: getMealDate ipv today
   var mealFb=fb[k];
   var fbDate=fb.ts?new Date(fb.ts).toLocaleDateString('nl-BE',{day:'numeric',month:'long'}):today();
   var fbHtml=mealFb
@@ -2504,7 +2504,12 @@ function generateWeekReport(){
     totalKcal+=dayKcal;
     var dLabel=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
     var mealCount=['morning','lunch','evening'].reduce(function(s,k){return s+(diary.meals&&diary.meals[k]?diary.meals[k].length:0);},0);
-    lines.push(dLabel+': '+mealCount+' maaltijditems, '+Math.round(diary.water||0)+' gl water'+(acts?' , '+acts+' min beweging':'')+(dayKcal?' , '+dayKcal+' kcal':''));
+    var dayLine=dLabel.toUpperCase()+'\r\n';
+    dayLine+='  Maaltijditems: '+mealCount+'\r\n';
+    dayLine+='  Water: '+Math.round(diary.water||0)+' glazen';
+    if(acts)dayLine+='\r\n  Beweging: '+acts+' min';
+    if(dayKcal)dayLine+='\r\n  Calorieen: '+dayKcal+' kcal';
+    lines.push(dayLine);
   }
   var goals=getGoals(S.user.email);
   var avgKcal=days?Math.round(totalKcal/days):0;
@@ -2515,7 +2520,7 @@ function generateWeekReport(){
   if(avgKcal)body+='\uD83D\uDD25 Calorieën: '+avgKcal+' kcal/dag'+(goals.kcal?' (doel: '+goals.kcal+')':'')+'%0D%0A';
   body+='\uD83D\uDCA7 Water: '+avgWater+' glazen/dag'+(goals.water?' (doel: '+goals.water+')':'')+'%0D%0A';
   body+='\uD83C\uDFC3 Beweging: '+avgMov+' min/dag'+(goals.movement?' (doel: '+goals.movement+')':'')+'%0D%0A%0D%0A';
-  body+='DAGDETAILS%0D%0A'+lines.join('%0D%0A')+'%0D%0A%0D%0A';
+  body+='DAGDETAILS%0D%0A-------------------------------%0D%0A'+lines.join('%0D%0A-------------------------------%0D%0A')+'%0D%0A%0D%0A';
   body+='Ga zo door! Tot volgende week.%0D%0ABe Fit Marke';
   var subject=encodeURIComponent('Jouw weekoverzicht Be Fit Marke');
   window.open('mailto:'+S.user.email+'?subject='+subject+'&body='+body,'_blank');
@@ -3118,7 +3123,7 @@ function _buildScanModal(title, onResult){
     +'<button onclick="_toggleCamera(this, arguments[0])" '
     +'style="width:100%;background:rgba(255,255,255,0.1);color:#A8D4B8;border:1px solid rgba(255,255,255,0.2);'
     +'border-radius:10px;padding:10px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;">'
-    +'?? Camera gebruiken</button>'
+    +'&#x1F4F7; Camera gebruiken</button>'
     +'<div id="bc-cam-wrap" style="display:none;">'
     +'<video id="bc-video" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;max-height:220px;object-fit:cover;display:block;"></video>'
     +'<div id="bc-status" style="color:#A8D4B8;font-size:11px;margin-top:6px;text-align:center;min-height:16px;">Tik op Camera om te scannen</div>'
@@ -3146,7 +3151,7 @@ function _toggleCamera(btn){
     _startZxingScan(window._bcOnResult||function(){});
   } else {
     wrap.style.display='none';
-    btn.textContent='?? Camera gebruiken';
+    btn.textContent='📷 Camera gebruiken';
     if(_scanStream){_scanStream.getTracks().forEach(function(t){t.stop();});_scanStream=null;}
   }
 }
