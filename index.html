@@ -1003,26 +1003,24 @@ function renderAdminClient(c,i){
   var _dHasData=Object.values(_diary.meals||{}).some(function(m){return m.length>0;})||(_diary.water||0)>0;
   var fatSec='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;"><div style="font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x1F4C9; Vetmassa</div><div style="display:flex;gap:8px;align-items:center;"><input type="date" id="fat-date-'+i+'" value="'+today()+'" onclick="event.stopPropagation()" style="flex:1;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:12px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/><input type="number" id="fat-val-'+i+'" step="0.1" min="1" max="70" placeholder="% vet" onclick="event.stopPropagation()" style="width:80px;border:1px solid #DDD4C0;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:700;font-family:Lato,sans-serif;color:#C0392B;background:#FDFAF5;outline:none;text-align:center;" value="'+(lastFat?lastFat.fat:'')+'"/><button onclick="event.stopPropagation();var d=document.getElementById(\'fat-date-'+i+'\').value,f=parseFloat(document.getElementById(\'fat-val-'+i+'\').value);if(d&&f>0)saveFat(\''+c.email+'\',d,f);else showToast(\'Vul datum en % in\');" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713;</button></div>'+(lastFat?'<div style="font-size:11px;color:#C0392B;margin-top:6px;">Laatste: <strong>'+lastFat.fat+'%</strong> op '+lastFat.date+'</div>':'')+'</div>';
   
-  // Weight evolution (last 8 entries)
+  // Weight evolution (last 8 entries) — correct null-safe versie
   var _wEvol='';
   if(wlist&&wlist.length>0){
     var _wRecent=wlist.filter(function(w){return w.kg!=null&&w.kg>0;}).slice(-8);
-    if(!_wRecent.length){_wEvol='';}
-    else{
-    var _wMax=Math.max.apply(null,_wRecent.map(function(w){return w.kg;}));
-    var _wMin=Math.min.apply(null,_wRecent.map(function(w){return w.kg;}));
-    var _wRange=Math.max(_wMax-_wMin,1);
-    var _barW=Math.floor(100/_wRecent.length);
-    _wEvol='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
-      +'<div style="font-size:11px;font-weight:700;color:#2A6030;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x2696;&#xFE0F; Gewichtsevolutie</div>'
-      +'<canvas id="wc-'+i+'" height="70" style="width:100%;display:block;"></canvas>'
-      +'<div style="display:flex;justify-content:space-between;margin-top:6px;">'
-      +'<div style="font-size:10px;color:#5A7A5C;">Min: <strong>'+_wMin+'kg</strong></div>'
-      +'<div style="font-size:10px;font-weight:700;color:#2A6030;">Huidig: <strong>'+_wRecent[_wRecent.length-1].kg+'kg</strong></div>'
-      +'<div style="font-size:10px;color:#5A7A5C;">Max: <strong>'+_wMax+'kg</strong></div>'
-      +'</div>'
-    } // end else _wRecent.length
-      +'</div>';
+    if(_wRecent.length>0){
+      var _wMax=Math.max.apply(null,_wRecent.map(function(w){return w.kg;}));
+      var _wMin=Math.min.apply(null,_wRecent.map(function(w){return w.kg;}));
+      var _wLast=_wRecent[_wRecent.length-1];
+      _wEvol='<div style="margin-top:10px;border-top:1px solid #EAE2D0;padding-top:10px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#2A6030;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">&#x2696;&#xFE0F; Gewichtsevolutie</div>'
+        +'<canvas id="wc-'+i+'" height="70" style="width:100%;display:block;"></canvas>'
+        +'<div style="display:flex;justify-content:space-between;margin-top:6px;">'
+        +'<div style="font-size:10px;color:#5A7A5C;">Min: <strong>'+_wMin+'kg</strong></div>'
+        +'<div style="font-size:10px;font-weight:700;color:#2A6030;">Huidig: <strong>'+(_wLast?_wLast.kg:'--')+'kg</strong></div>'
+        +'<div style="font-size:10px;color:#5A7A5C;">Max: <strong>'+_wMax+'kg</strong></div>'
+        +'</div>'
+        +'</div>';
+    }
   }
 // Meals of today
   var dm2=d&&d.meals?d.meals:{morning:[],lunch:[],evening:[]};
