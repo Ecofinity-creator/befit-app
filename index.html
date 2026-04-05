@@ -1234,9 +1234,7 @@ async function requestNotifPermission(){
       subscribePush().then(function(sub){ // always refresh subscription
         if(sub&&S.user){
           var backendUrl=DB.get('push:backend:url')||'https://befit-backend-teal.vercel.app';
-          fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({email:S.user.email,subscription:sub})
-          }).catch(function(){});
+          // Abonnement opgeslagen in Firestore via subscribePush()
         }
       });
     }
@@ -1250,11 +1248,7 @@ async function requestNotifPermission(){
           localNotif('Be Fit Marke ✅','Meldingen ingeschakeld!','welcome');
           subscribePush().then(function(sub){
             if(sub&&S.user){
-              DB.set('push:backend:url','https://befit-backend-teal.vercel.app');
-              var backendUrl='https://befit-backend-teal.vercel.app';
-              fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({email:S.user.email,subscription:sub})
-              }).catch(function(){});
+              // Abonnement opgeslagen in Firestore via subscribePush()
             }
           });
         }
@@ -1955,7 +1949,8 @@ var _gX=0,_gY=0,_gZ=9.8,_GALPHA=0.85;
 function startStepCounting(){
   if(_stepListener)return;
   if(!window.DeviceMotionEvent){
-    showToast("\u274C Stappenteller niet beschikbaar op dit toestel");return;
+    // Stappenteller werkt enkel op smartphones met bewegingssensor
+    return; // Geen toast op desktop
   }
   function go(){
     var buf=[],lastStep=0;
