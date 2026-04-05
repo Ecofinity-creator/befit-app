@@ -1401,18 +1401,29 @@ function analyseBlock(){
     +'</div>'
     :'';
 
+  // Barcode kaart - altijd zichtbaar bovenaan analyse tab
+  var barcodeCard='<div class="card" style="margin-bottom:12px;">'
+    +'<div class="card-head"><div class="card-icon-box">&#x1F4F7;</div><span class="card-title">Barcode scannen</span></div>'
+    +'<div style="padding:0 0 10px;">'
+    +'<button onclick="openStandaloneScanner()" style="width:100%;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;font-family:Lato,sans-serif;">&#x1F4F7; Scannen (productinfo)</button>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button onclick="openBarcodeScanner(\'morning\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'
+    +'<button onclick="openBarcodeScanner(\'lunch\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'
+    +'<button onclick="openBarcodeScanner(\'evening\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'
+    +'</div></div></div>';
+
   if(!allItems.length){
-    return weekCard+'<div class="card">'+navBar
+    return weekCard+barcodeCard+'<div class="card">'+navBar
       +'<div style="text-align:center;padding:32px 16px;">'
       +'<div style="font-size:40px;margin-bottom:12px;">&#x1F966;</div>'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Geen maaltijden ingegeven</div>'
-      +'<div style="font-size:13px;color:#9E9580;">Voeg eerst maaltijden toe om een voedingsanalyse te krijgen.</div>'
+      +'<div style="font-size:13px;color:#9E9580;">Voeg eerst maaltijden toe via de maaltijdtabs, of scan een barcode hierboven.</div>'
       +'</div></div>';
   }
 
   // Access control
   if(!isAnalyseEnabled()){
-    return weekCard+'<div class="card" style="margin-bottom:12px;">'+'<div class="card-head"><div class="card-icon-box">&#x1F4F7;</div><span class="card-title">Barcode scannen</span></div>'+'<div style="padding:16px;text-align:center;">'+'<div style="font-size:12px;color:#5A7A5C;margin-bottom:10px;">'+'Scan een barcode voor productinfo of om toe te voegen aan je maaltijd.</div>'+'<button onclick="openStandaloneScanner()" style="width:100%;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:Lato,sans-serif;">'+'&#x1F4F7; Scannen (productinfo)</button>'+'<div style="font-size:10px;color:#9E9580;text-align:center;margin-bottom:6px;">'+'of direct toevoegen aan maaltijd:</div>'+'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">'+'<button onclick="openBarcodeScanner(\'morning\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'+'<button onclick="openBarcodeScanner(\'lunch\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'+'<button onclick="openBarcodeScanner(\'evening\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'+'</div></div></div>'+'<div class="card"><div style="text-align:center;padding:32px 16px;">'
+    return weekCard+barcodeCard+barcodeCard+'<div class="card"><div style="text-align:center;padding:32px 16px;">'
       +'<div style="font-size:40px;margin-bottom:12px;">&#x1F512;</div>'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Analyse niet beschikbaar</div>'
       +'<div style="font-size:13px;color:#9E9580;">De AI voedingsanalyse is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
@@ -1637,8 +1648,10 @@ function weightBlock(){
   setTimeout(function(){
     var adminCanvas=document.getElementById('wc-'+capturedI);
     if(!adminCanvas)return;
-    var W=260;
-    try{if(adminCanvas.closest){var card=adminCanvas.closest('.admin-client-card');if(card)W=card.clientWidth-32;}else if(adminCanvas.parentElement){W=adminCanvas.parentElement.clientWidth-32||260;}}catch(e){}
+    // Bereken breedte via meerdere methodes
+    var W=adminCanvas.offsetWidth||adminCanvas.parentElement&&adminCanvas.parentElement.offsetWidth||0;
+    if(W<50){try{var _card=document.querySelector('.admin-client-detail.open');if(_card)W=_card.offsetWidth-32;}catch(e){}}
+    if(W<50)W=Math.min(window.innerWidth-80,600); // veilige fallback
     var H=70;adminCanvas.width=W;adminCanvas.height=H;
     var ctx2=adminCanvas.getContext('2d');
     var pts2=capturedPts,minK2=capturedMin-0.5,maxK2=capturedMax+0.5;
@@ -1672,7 +1685,7 @@ function weightBlock(){
     [0,Math.floor(pts2.length/2),pts2.length-1].filter(function(j,_,a){return a.indexOf(j)===_;}).forEach(function(j){
       if(pts2[j])ctx2.fillText(pts2[j].date.slice(5),xA(j),H-2);
     });
-  },400);
+  },700);
   })(_wRecent||[], _wMin||0, _wMax||0, i);
 
   setTimeout(function(){var canvas=document.getElementById('weight-chart');if(!canvas)return;var ctx=canvas.getContext('2d'),W=canvas.clientWidth||300,H=210;canvas.width=W;canvas.height=H;var pts=list.filter(function(p){return p.kg!=null&&p.kg>0;}),minK=pts.length?Math.min.apply(null,pts.map(function(p){return p.kg;}))-1.5:50,maxK=pts.length?Math.max.apply(null,pts.map(function(p){return p.kg;}))+1.5:100;var hasFat2=list.some(function(p){return p.fat!=null;});var pad={t:24,r:hasFat2?36:16,b:36,l:46},gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;function xP(i){return pad.l+(pts.length>1?i/(pts.length-1):0.5)*gw;}function yP(kg){return pad.t+gh-(kg-minK)/(maxK-minK||1)*gh;}ctx.strokeStyle='#EAE2D0';ctx.lineWidth=1;for(var g=0;g<=4;g++){var gy=pad.t+g/4*gh;ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(pad.l+gw,gy);ctx.stroke();ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='right';ctx.fillText(Math.round((maxK-(maxK-minK)*g/4)*10)/10,pad.l-4,gy+3);}ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='center';pts.forEach(function(p,i){if(i===0||i===pts.length-1){var d=new Date(p.date);ctx.fillText(d.getDate()+'/'+(d.getMonth()+1),xP(i),H-pad.b+13);}});if(pts.length>1){
