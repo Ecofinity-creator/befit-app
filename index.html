@@ -806,7 +806,7 @@ function renderAdminBroadcasts(){
 
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
-      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="S.adminFilterInactive=!S.adminFilterInactive;render()" style="background:'+(S.adminFilterInactive?'#C0392B':'#F0EAD6')+';color:'+(S.adminFilterInactive?'#fff':'#C0392B')+';border:1px solid #C0392B;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;" title="Filter inactieve klanten">&#x1F6D1; Inactief</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="S.adminFilterInactive=!S.adminFilterInactive;render()" style="background:'+(S.adminFilterInactive?'#C0392B':'#F0EAD6')+';color:'+(S.adminFilterInactive?'#fff':'#C0392B')+';border:1px solid #C0392B;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;" title="Filter inactieve klanten">&#x1F6D1; '+(S.adminFilterInactive?'Alle klanten':'Inactief')+'</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week','qr'].includes(S.adminTab)){
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
@@ -3923,7 +3923,16 @@ function render(){
   if(S.screen==='admin'){
     loadAdminClients();
     var _search=(S.adminSearch||'').toLowerCase().trim();
-  var _filtered=_search?S.adminClients.filter(function(cl){return (cl.name||'').toLowerCase().includes(_search)||(cl.email||'').toLowerCase().includes(_search);}):S.adminClients;
+  // Eerst filteren op inactief (indien actief)
+  var _base=S.adminClients;
+  if(S.adminFilterInactive){
+    _base=_base.filter(function(cl){
+      if((DB.get('user:'+cl.email)||{}).status!=='approved')return false;
+      return getDaysInactive(cl.email)>=3;
+    });
+  }
+  // Dan filteren op zoekterm
+  var _filtered=_search?_base.filter(function(cl){return (cl.name||'').toLowerCase().includes(_search)||(cl.email||'').toLowerCase().includes(_search);}):_base;
   var ch=_filtered.length===0&&S.adminClients.length===0
       ?'<div style="text-align:center;padding:40px 16px;">'
         +'<div style="font-size:36px;margin-bottom:12px;">&#x1F465;</div>'
@@ -3934,7 +3943,9 @@ function render(){
         +'<button onclick="loadAdminClientsFromFirestore()" style="background:transparent;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">&#x1F504; Opnieuw laden</button>'
         +'</div>'
       :(_search&&_filtered.length===0
-        ?'<div style="text-align:center;padding:30px;color:#9E9580;font-size:13px;font-style:italic;">Geen klanten gevonden voor \"'+_search+'\"</div>'
+        ?'<div style="text-align:center;padding:30px;color:#9E9580;font-size:13px;">'
+        +(S.adminFilterInactive&&!_search?'\uD83D\uDED1 Geen inactieve klanten gevonden.':'Geen klanten gevonden voor \"'+_search+'\"')
+        +'</div>'
         :_filtered.map(function(c,i){return renderAdminClient(c,i);}).join(''));
     var tabStyle='flex:0 0 auto;white-space:nowrap;text-align:center;padding:12px 14px;font-size:12px;font-weight:700;font-family:Lato,sans-serif;cursor:pointer;';
     var t1=S.adminTab==='clients';
