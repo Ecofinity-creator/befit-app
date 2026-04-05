@@ -61,7 +61,7 @@ body.dark .app-header{background:#0f1a10;}
 body.dark .diary-title-bar{background:rgba(10,25,12,0.9);}
 body.dark #app{background:#0f1a10;}
 body.dark .admin-client-card{background:#1a2a1c;}
-.dark-toggle{position:fixed;bottom:80px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(30,61,32,0.85);color:#C9A84C;border:1px solid #C9A84C;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:500;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all .2s;}
+.dark-toggle{display:none!important;}
 #app{min-height:100vh;}
 .login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;background:linear-gradient(160deg,#1E3D20 0%,#2A6030 60%,#4A8E7B 100%);}
 .login-logo-area{text-align:center;margin-bottom:24px;}
@@ -87,6 +87,7 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .diary-title-bar{background:rgba(20,50,22,0.7);border-bottom:1px solid rgba(255,255,255,0.07);}
 .diary-title{font-family:'Playfair Display',serif;font-style:italic;font-size:13px;color:#C9B97A;}
 .notif-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#1E3D20;color:#F0EAD6;padding:12px 16px;font-size:13px;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(20px);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1E3D20;color:#F0EAD6;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1;}
 .nav{display:flex;background:#fff;border-top:1px solid #E8E0D0;position:sticky;bottom:0;z-index:100;overflow-x:auto;}
@@ -421,7 +422,22 @@ function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()
 function getTimeStr(item){return item.timeStr||(item.ts?String(new Date(item.ts).getHours()).padStart(2,'0')+':'+String(new Date(item.ts).getMinutes()).padStart(2,'0'):nowHHMM());}
 function showToast(msg){msg=msg||'\u2713 Opgeslagen';var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
 function closeNotif(){document.getElementById('notif-bar').style.display='none';}
-function showNotif(msg){var b=document.getElementById('notif-bar');document.getElementById('notif-msg').textContent=msg;b.style.display='flex';if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');}
+function showNotif(msg){
+  var b=document.getElementById('notif-bar');
+  document.getElementById('notif-msg').textContent=msg;
+  b.style.display='flex';
+  // Toon ook een centrale popup op het klantscherm
+  var popup=document.createElement('div');
+  popup.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);'
+    +'background:#1E3D20;color:#F0EAD6;padding:14px 20px;border-radius:14px;'
+    +'font-size:13px;font-weight:700;z-index:9998;text-align:center;'
+    +'box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:320px;width:90%;'
+    +'animation:slideUp .3s ease;';
+  popup.innerHTML='\uD83D\uDD14 '+msg;
+  document.body.appendChild(popup);
+  setTimeout(function(){if(popup.parentNode)popup.parentNode.removeChild(popup);},4000);
+  if(typeof localNotif==='function')localNotif('Be Fit Marke',msg,'befit-reminder');
+}
 
 function saveUserData(){if(!S.user)return;saveSession();DB.set('diary:'+S.user.email+':'+(S.mealDate||today()),{meals:S.meals,snacks:S.snacks,water:S.water,reminders:S.reminders,activities:S.activities,ts:Date.now()});showToast();}
 function loadUserData(){
@@ -759,6 +775,7 @@ function summaryBlock(){
   var dObj=new Date(selDate+'T00:00:00');
   var dLabel=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   h+='<div style="display:flex;align-items:center;background:rgba(20,50,22,0.7);padding:10px 16px;margin:-14px -14px 16px;border-radius:14px 14px 0 0;gap:8px;">'
+    +'<button onclick="summaryPrevMonth()" style="background:rgba(255,255,255,0.08);color:#C9B97A;border:none;border-radius:8px;padding:6px 9px;font-size:13px;cursor:pointer;" title="Vorige maand">&#x276E;&#x276E;</button>'
     +'<button onclick="summaryPrevDay()" style="background:rgba(255,255,255,0.15);color:#F0EAD6;border:none;border-radius:8px;padding:6px 13px;font-size:18px;cursor:pointer;line-height:1;">&#x276E;</button>'
     +'<div style="flex:1;text-align:center;">'
     +'<div style="font-size:13px;font-weight:700;color:#F0EAD6;text-transform:capitalize;">'+dLabel+'</div>'
@@ -767,6 +784,7 @@ function summaryBlock(){
     +'<button onclick="summaryNextDay()" '
     +(isToday?'disabled style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.2);':'style="background:rgba(255,255,255,0.15);color:#F0EAD6;')
     +'border:none;border-radius:8px;padding:6px 13px;font-size:18px;cursor:pointer;line-height:1;">&#x276F;</button>'
+    +(isToday?'':'<button onclick="summaryNextMonth()" style="background:rgba(255,255,255,0.08);color:#C9B97A;border:none;border-radius:8px;padding:6px 9px;font-size:13px;cursor:pointer;" title="Volgende maand">&#x276F;&#x276F;</button>')
     +'</div>';
   if(isToday&&!allEmpty)h+='<div class="congrats"><h3>Goed gedaan vandaag! \u2756</h3><p>Je dagboek wordt automatisch opgeslagen. Be Fit volgt je op!</p></div>';
   h+='<div class="card"><div class="sum-title">Dagboek &mdash; '+selDate+'</div>';
@@ -885,7 +903,7 @@ if(S.adminTab==='week'){
       });
       var wt=getWeights(selClient).find(function(w){return w.date===ds;});
       var acts=(diary.activities||[]).reduce(function(s,a){return s+a.dur;},0);
-      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
+      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'short'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
     }
     var goals2=getGoals(selClient);
     function miniBar(val,max,color){
@@ -1094,7 +1112,7 @@ function renderAdminClient(c,i){
   var aBtns=status==='pending'
     ?'<div style="margin-top:10px;background:#E8F4EE;border-radius:10px;padding:12px;border:2px solid #2A6030;">'+'<div style="font-size:11px;font-weight:700;color:#2A6030;margin-bottom:8px;text-align:center;">&#x23F3; Wacht op goedkeuring</div>'+'<div style="display:flex;gap:8px;">'+'<button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2705; Goedkeuren</button>'+'<button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:#fff;color:#C0392B;border:2px solid #C0392B;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x274C; Weigeren</button>'+'</div></div>'
     :status==='approved'
-    ?'<div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Intrekken</button><button onclick="event.stopPropagation();deleteClient(\''+c.email+'\'" style="background:transparent;color:#999;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1;</button></div>'
+    ?'<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:2px solid #EAE2D0;"><button onclick="event.stopPropagation();rejectClient(\''+c.email+'\')" style="flex:1;background:#FFF5F5;color:#C0392B;border:1px solid #FFCDD0;border-radius:9px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x26D4; Intrekken</button><button onclick="event.stopPropagation();deleteClient(\''+c.email+'\')" style="flex:1;background:#C0392B;color:#fff;border:none;border-radius:9px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x1F5D1; Klant wissen</button></div>'
     :'<div style="margin-top:8px;"><button onclick="event.stopPropagation();approveClient(\''+c.email+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">Toch goedkeuren</button></div>';
   var _tpHtml='<div style="margin-top:8px;">'
     +'<button id="tpb-'+i+'" onclick="event.stopPropagation();sendTestPush(\''+c.email+'\','+i+')" '
@@ -1295,6 +1313,8 @@ function removeActivity(i){S.activities.splice(i,1);saveUserData();render();}
 function getSummaryDate(){return S.summaryDate||today();}
 function setSummaryDate(d){S.summaryDate=d;if(d!==today()){fsdb.collection('data').doc(fsKey('diary:'+S.user.email+':'+d)).get().then(function(snap){if(snap.exists){var dd=JSON.parse(snap.data().v);localStorage.setItem('diary:'+S.user.email+':'+d,JSON.stringify(dd));}render();}).catch(function(){render();});}else{render();}}
 function summaryPrevDay(){var d=new Date(getSummaryDate());d.setDate(d.getDate()-1);setSummaryDate(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}
+function summaryPrevMonth(){var d=new Date(getSummaryDate());d.setMonth(d.getMonth()-1);setSummaryDate(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}
+function summaryNextMonth(){var d=new Date(getSummaryDate());d.setMonth(d.getMonth()+1);var nd=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(nd<=today())setSummaryDate(nd);}
 function summaryNextDay(){var d=new Date(getSummaryDate());d.setDate(d.getDate()+1);var nd=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(nd<=today())setSummaryDate(nd);}
 function getMealDate(){return S.mealDate||today();}
 function setMealDate(d){
@@ -1545,7 +1565,8 @@ async function runPhotoAnalyse(input){
               +'{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"korte uitleg","gerechten":["gerecht1","gerecht2"],"tips":["tip1","tip2","tip3"]}'}
           ]}]
         });
-      var data=await resp.json();
+      var data=resp; // callClaude geeft al geparsed object terug
+      if(!data||!data.content||!data.content[0]){throw new Error('Ongeldig antwoord van AI');}
       var text=data.content[0].text.replace(/```json|```/g,'').trim();
       var result=JSON.parse(text);
       result.fromPhoto=true;
@@ -1586,7 +1607,8 @@ async function runAnalyse(){
         system:'Je bent een voedingsdeskundige assistent. Antwoord altijd in het Nederlands en enkel in het gevraagde JSON-formaat.',
         messages:[{role:'user',content:prompt}]
       });
-    var data=await resp.json();
+    var data=resp; // callClaude geeft al geparsed object terug
+    if(!data||!data.content||!data.content[0]){showToast('\u274C Ongeldig antwoord van AI');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
     var result=JSON.parse(text);
     DB.set('analyse:'+S.user.email+':'+selDate,result);
@@ -1615,14 +1637,17 @@ function weightBlock(){
   var chartCard='<div class="card" style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:12px;">Gewichtsevolutie</div><canvas id="weight-chart" style="display:block;width:100%;"></canvas></div>';
   var logRows=list.slice().reverse().slice(0,15).map(function(w){var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;var delta=prev&&w.kg&&prev.kg?Math.round((w.kg-prev.kg)*10)/10:null;var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+(w.kg?w.kg+' kg':'-')+(w.fat?'<span style="font-size:11px;color:#C0392B;margin-left:8px;">'+w.fat+'% vet</span>':'')+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';}).join('');
   var logCard='<div class="card"><div style="font-size:14px;font-weight:600;color:#1E3D20;margin-bottom:10px;">Metingen</div>'+logRows+'</div>';
-  // Teken admin gewichtslijn (vloeiend)
+  // Teken admin gewichtslijn (vloeiend) - data gecaptured via IIFE
+  (function(capturedPts, capturedMin, capturedMax, capturedI){
+  if(!capturedPts||!capturedPts.length)return;
   setTimeout(function(){
-    var adminCanvas=document.getElementById('wc-'+i);
-    if(!adminCanvas||!_wRecent||!_wRecent.length)return;
-    var W=adminCanvas.parentElement?adminCanvas.parentElement.clientWidth-32:260;
+    var adminCanvas=document.getElementById('wc-'+capturedI);
+    if(!adminCanvas)return;
+    var W=260;
+    try{if(adminCanvas.closest){var card=adminCanvas.closest('.admin-client-card');if(card)W=card.clientWidth-32;}else if(adminCanvas.parentElement){W=adminCanvas.parentElement.clientWidth-32||260;}}catch(e){}
     var H=70;adminCanvas.width=W;adminCanvas.height=H;
     var ctx2=adminCanvas.getContext('2d');
-    var pts2=_wRecent,minK2=_wMin-0.5,maxK2=_wMax+0.5;
+    var pts2=capturedPts,minK2=capturedMin-0.5,maxK2=capturedMax+0.5;
     var pl=8,pr=8,pt=10,pb=18,gw2=W-pl-pr,gh2=H-pt-pb;
     function xA(j){return pl+(pts2.length>1?j/(pts2.length-1):0.5)*gw2;}
     function yA(kg){return pt+gh2-(kg-minK2)/(maxK2-minK2||1)*gh2;}
@@ -1653,7 +1678,8 @@ function weightBlock(){
     [0,Math.floor(pts2.length/2),pts2.length-1].filter(function(j,_,a){return a.indexOf(j)===_;}).forEach(function(j){
       if(pts2[j])ctx2.fillText(pts2[j].date.slice(5),xA(j),H-2);
     });
-  },150);
+  },400);
+  })(_wRecent||[], _wMin||0, _wMax||0, i);
 
   setTimeout(function(){var canvas=document.getElementById('weight-chart');if(!canvas)return;var ctx=canvas.getContext('2d'),W=canvas.clientWidth||300,H=210;canvas.width=W;canvas.height=H;var pts=list.filter(function(p){return p.kg!=null&&p.kg>0;}),minK=pts.length?Math.min.apply(null,pts.map(function(p){return p.kg;}))-1.5:50,maxK=pts.length?Math.max.apply(null,pts.map(function(p){return p.kg;}))+1.5:100;var hasFat2=list.some(function(p){return p.fat!=null;});var pad={t:24,r:hasFat2?36:16,b:36,l:46},gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;function xP(i){return pad.l+(pts.length>1?i/(pts.length-1):0.5)*gw;}function yP(kg){return pad.t+gh-(kg-minK)/(maxK-minK||1)*gh;}ctx.strokeStyle='#EAE2D0';ctx.lineWidth=1;for(var g=0;g<=4;g++){var gy=pad.t+g/4*gh;ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(pad.l+gw,gy);ctx.stroke();ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='right';ctx.fillText(Math.round((maxK-(maxK-minK)*g/4)*10)/10,pad.l-4,gy+3);}ctx.fillStyle='#9E9580';ctx.font='10px Lato,sans-serif';ctx.textAlign='center';pts.forEach(function(p,i){if(i===0||i===pts.length-1){var d=new Date(p.date);ctx.fillText(d.getDate()+'/'+(d.getMonth()+1),xP(i),H-pad.b+13);}});if(pts.length>1){
   ctx.beginPath();
@@ -2621,6 +2647,17 @@ async function callClaude(body){
     return resp3.json();
   }
 }
+function showAdminPushPopup(label){
+  var popup=document.createElement('div');
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
+    +'background:#1E3D20;color:#F0EAD6;padding:18px 28px;border-radius:16px;'
+    +'font-size:14px;font-weight:700;z-index:9999;text-align:center;'
+    +'box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:200px;';
+  popup.innerHTML='\uD83D\uDD14 Push verstuurd!'
+    +(label?'<br><span style="font-size:11px;font-weight:400;opacity:.75;">'+label+'</span>':'');
+  document.body.appendChild(popup);
+  setTimeout(function(){if(popup.parentNode)popup.parentNode.removeChild(popup);},2200);
+}
 function localNotif(title,body,tag){if(Notification.permission!=='granted')return;try{navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon-192.png',tag:tag||'befit'});});}catch(e){}}
 function getExtraAdmins(){return DB.get('extra:admins')||[];}
 
@@ -2760,9 +2797,9 @@ async function runMealAnalyse(meal){
   try{
     var prompt='Analyseer deze '+mealName+':\n\n'+items.map(function(i){return '- '+i.t;}).join('\n')+'\n\nAntwoord ENKEL in dit JSON-formaat:\n{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"uitleg","tips":["tip1","tip2"]}';
     var resp=await callClaude({model:'claude-sonnet-4-6',max_tokens:400,system:'Je bent een voedingsdeskundige assistent. Antwoord in het Nederlands en enkel in het gevraagde JSON-formaat.',messages:[{role:'user',content:prompt}]});
-    var data=await resp.json();
-    if(data.error){showToast('API fout: '+data.error.message);S.analyseLoading=null;render();return;}
-    if(!data.content||!data.content[0]){showToast('Ongeldig antwoord');S.analyseLoading=null;render();return;}
+    var data=resp; // callClaude geeft al geparsed object terug
+    if(!data||data.error){showToast('\u274C API fout: '+(data&&data.error?data.error.message:'onbekend'));S.analyseLoading=null;render();return;}
+    if(!data.content||!data.content[0]){showToast('\u274C Ongeldig antwoord');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
     var jm=text.match(/\{[\s\S]*\}/);if(!jm){showToast('Onleesbaar antwoord');S.analyseLoading=null;render();return;}
     var result=JSON.parse(jm[0]);result.meal=meal;result.mealName=mealName;result.ts=Date.now();result.byClient=S.user.name;
@@ -3163,7 +3200,7 @@ function markBroadcastsRead(email){DB.set('broadcast:read:'+email,getBroadcasts(
 function postBroadcast(){var tEl=document.getElementById('bc-title'),txEl=document.getElementById('bc-text'),cEl=document.getElementById('bc-cat'),title=(tEl.value||'').trim(),text=(txEl.value||'').trim(),cat=cEl?cEl.value:'\uD83D\uDCA1';if(!text){showToast('\u274C Vul een bericht in');return;}var msgs=getBroadcasts();msgs.unshift({id:Date.now().toString(),from:S.user.name,title:title,text:text,cat:cat,ts:Date.now()});saveBroadcasts(msgs);tEl.value='';txEl.value='';if(typeof DB!=='undefined'){DB.keys().filter(function(k){return k.startsWith('push:sub:');}).forEach(function(k){var sub=DB.get(k);if(sub&&typeof sendPushToClient==='function')sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke','Nieuw bericht','broadcast');});}showToast('\u2713 Bericht verstuurd');render();}
 function saveBroadcasts(msgs){DB.set('broadcast:messages',msgs);}
 function saveChat(email,msgs){DB.set(chatKey(email),msgs);}
-function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);if(typeof sendPushToClient==='function'){var csub=DB.get('push:sub:'+email);if(csub)sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');}inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
+function sendAdminMsg(email,idx){var inp=document.getElementById('admin-chat-inp-'+idx),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(email);msgs.push({from:'admin',name:S.user.name,text:txt,ts:Date.now()});saveChat(email,msgs);if(typeof sendPushToClient==='function'){var csub=DB.get('push:sub:'+email);if(csub){sendPushToClient(csub,'\uD83D\uDCAC Be Fit Marke','Nieuw bericht van je di\u00ebtiste!','chat');showAdminPushPopup(DB.get('user:'+email)&&DB.get('user:'+email).name||email);}}inp.value='';render();setTimeout(function(){var el=document.getElementById('admin-chat-msgs-'+idx);if(el)el.scrollTop=el.scrollHeight;},50);}
 function sendChatMsg(){var inp=document.getElementById('chat-inp'),txt=(inp.value||'').trim();if(!txt)return;var msgs=getChat(S.user.email);msgs.push({from:'client',name:S.user.name,text:txt,ts:Date.now()});saveChat(S.user.email,msgs);inp.value='';render();setTimeout(function(){var el=document.getElementById('chat-msgs');if(el)el.scrollTop=el.scrollHeight;},50);}
 
 // ── Unified Barcode Scanner (ZXing) ─────────────────────────
@@ -3292,7 +3329,7 @@ async function runMealPhotoAnalyse(k,input){
       var resp=await callClaude({model:'claude-sonnet-4-20250514',max_tokens:600,
           system:'Je bent een voedingsdeskundige. Analyseer de foto en geef JSON: {"items":["item1","item2"]}. Enkel JSON, geen uitleg.',
           messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},{type:'text',text:'Welke voedingsmiddelen zie je?'}]}]});
-      var data=await resp.json();
+      var data=resp; // callClaude geeft al geparsed object terug
       var txt=data.content&&data.content[0]&&data.content[0].text||'';
       var parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
       var items=parsed.items||[];
@@ -3344,7 +3381,7 @@ function _buildScanModal(title, onResult){
     +'<div id="bc-result" style="display:none;width:100%;max-width:340px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
     +'<div style="display:flex;gap:10px;margin-top:16px;">'
     +'<button id="bc-again" onclick="document.getElementById(\'bc-result\').style.display=\'none\';document.getElementById(\'bc-again\').style.display=\'none\';" '
-    +'style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;">?? Opnieuw</button>'
+    +'style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;">\uD83D\uDD04 Opnieuw</button>'
     +'<button onclick="closeBarcodeScanner()" '
     +'style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;">✕ Sluiten</button>'
     +'</div></div>';
@@ -3699,6 +3736,7 @@ function _doSendTestPush(sub,email,btn){
   sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke','Test bericht — push werkt! \u2705','test')
     .then(function(){
       showToast('\u2713 Push verstuurd naar '+email);
+      showAdminPushPopup(email);
       if(btn){btn.textContent='\u2713 Verzonden!';btn.style.background='#2A6030';}
       setTimeout(function(){
         if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;btn.style.background='';}
@@ -3715,7 +3753,15 @@ function _doSendTestPush(sub,email,btn){
     })
     .catch(function(e){
       if(btn){btn.textContent='\uD83D\uDD14 Test push';btn.disabled=false;}
-      showToast('❌ Push mislukt: '+e.message+'. Controleer Vercel logs.');
+      showToast('\u274C Push mislukt: '+e.message);
+      var errPopup=document.createElement('div');
+      errPopup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
+        +'background:#C0392B;color:#fff;padding:18px 24px;border-radius:16px;'
+        +'font-size:13px;font-weight:700;z-index:9999;text-align:center;'
+        +'box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:300px;';
+      errPopup.innerHTML='\u274C Push mislukt<br><span style="font-size:11px;font-weight:400;opacity:.85;">'+(e.message||'onbekende fout')+'</span>';
+      document.body.appendChild(errPopup);
+      setTimeout(function(){if(errPopup.parentNode)errPopup.parentNode.removeChild(errPopup);},3000);
     });
 }
 function render(){
