@@ -87,7 +87,6 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .diary-title-bar{background:rgba(20,50,22,0.7);border-bottom:1px solid rgba(255,255,255,0.07);}
 .diary-title{font-family:'Playfair Display',serif;font-style:italic;font-size:13px;color:#C9B97A;}
 .notif-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#1E3D20;color:#F0EAD6;padding:12px 16px;font-size:13px;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;}
-@keyframes slideUp{from{transform:translateX(-50%) translateY(20px);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1E3D20;color:#F0EAD6;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1;}
 .nav{display:flex;background:#fff;border-top:1px solid #E8E0D0;position:sticky;bottom:0;z-index:100;overflow-x:auto;}
@@ -426,13 +425,11 @@ function showNotif(msg){
   var b=document.getElementById('notif-bar');
   document.getElementById('notif-msg').textContent=msg;
   b.style.display='flex';
-  // Toon ook een centrale popup op het klantscherm
   var popup=document.createElement('div');
   popup.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);'
     +'background:#1E3D20;color:#F0EAD6;padding:14px 20px;border-radius:14px;'
     +'font-size:13px;font-weight:700;z-index:9998;text-align:center;'
-    +'box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:320px;width:90%;'
-    +'animation:slideUp .3s ease;';
+    +'box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:320px;width:90%;';
   popup.innerHTML='\uD83D\uDD14 '+msg;
   document.body.appendChild(popup);
   setTimeout(function(){if(popup.parentNode)popup.parentNode.removeChild(popup);},4000);
@@ -801,7 +798,7 @@ function renderAdminBroadcasts(){
   var msgs=getBroadcasts();
   if(!msgs.length)return '<div style="text-align:center;color:#9E9580;font-size:12px;font-style:italic;padding:20px;">Nog geen berichten verstuurd.</div>';
   return msgs.map(function(m){
-    var d=new Date(m.ts),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'}),ts=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    var d=new Date(m.ts),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'}),ts=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
     var th=m.title?'<div style="font-weight:700;font-size:13px;color:#1E3D20;margin-bottom:3px;">'+m.title+'</div>':'';
     return '<div class="card" style="margin-bottom:10px;border-left:4px solid #4A8E7B;padding:12px 14px;"><div style="display:flex;align-items:flex-start;gap:10px;"><div style="font-size:22px;flex-shrink:0">'+(m.cat||'\uD83D\uDCA1')+'</div><div style="flex:1;min-width:0;">'+th+'<div style="font-size:12px;color:#2C3E28;line-height:1.6;">'+m.text.split('\n').join('<br>')+'</div><div style="font-size:10px;color:#9E9580;margin-top:6px;">\uD83C\uDF3F '+m.from+' &middot; '+ds+' '+ts+'</div></div><button data-bid="'+m.id+'" onclick="event.stopPropagation();deleteBroadcast(this.dataset.bid)" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;flex-shrink:0;">&times;</button></div></div>';
   }).join('');
@@ -903,7 +900,7 @@ if(S.adminTab==='week'){
       });
       var wt=getWeights(selClient).find(function(w){return w.date===ds;});
       var acts=(diary.activities||[]).reduce(function(s,a){return s+a.dur;},0);
-      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
+      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
     }
     var goals2=getGoals(selClient);
     function miniBar(val,max,color){
@@ -1141,11 +1138,11 @@ function renderAdminClient(c,i){
     +'<div style="font-size:11px;color:#9E9580;margin-bottom:8px;">'+c.name+' &middot; Lid: '+new Date(c.created).toLocaleDateString('nl-BE')+'</div>'
     +(status==='approved'
       ?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" onclick="event.stopPropagation()">'
-      +'<button onclick="toggleChat(\''+c.email+'\')" style="flex:1;background:'+(chatOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4AC;<br><span style="font-size:9px;opacity:.85;">'+(chatOn?'Chat AAN':'Chat UIT')+'</span></button>'
-      +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="flex:1;background:'+(anlOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F9EA;<br><span style="font-size:9px;opacity:.85;">'+(anlOn?'Analyse AAN':'Analyse UIT')+'</span></button>'
-      +'<button onclick="toggleAgenda(\''+c.email+'\')" style="flex:1;background:'+(agendaOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4C5;<br><span style="font-size:9px;opacity:.85;">'+(agendaOn?'Agenda AAN':'Agenda UIT')+'</span></button>'
-      +'<button onclick="toggleWeight(\''+c.email+'\')" style="flex:1;background:'+(wtOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x2696;&#xFE0F;<br><span style="font-size:9px;opacity:.85;">'+(wtOn?'Gewicht AAN':'Gewicht UIT')+'</span></button>'
-      +'<button onclick="toggleVideo(\''+c.email+'\')" style="flex:1;background:'+(vidOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4F9;<br><span style="font-size:9px;opacity:.85;">'+(vidOn?'Video AAN':'Video UIT')+'</span></button>'
+      +'<button onclick="toggleChat(\''+c.email+'\')" style="flex:1;background:'+(chatOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4AC;<br>'+(chatOn?'Chat AAN':'Chat UIT')+'</button>'
+      +'<button onclick="toggleAnalyse(\''+c.email+'\')" style="flex:1;background:'+(anlOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F9EA;<br>'+(anlOn?'Analyse AAN':'Analyse UIT')+'</button>'
+      +'<button onclick="toggleAgenda(\''+c.email+'\')" style="flex:1;background:'+(agendaOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4C5;<br>'+(agendaOn?'Agenda AAN':'Agenda UIT')+'</button>'
+      +'<button onclick="toggleWeight(\''+c.email+'\')" style="flex:1;background:'+(wtOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x2696;&#xFE0F;<br>'+(wtOn?'Gewicht AAN':'Gewicht UIT')+'</button>'
+      +'<button onclick="toggleVideo(\''+c.email+'\')" style="flex:1;background:'+(vidOn?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;text-align:center;">&#x1F4F9;<br>'+(vidOn?'Video AAN':'Video UIT')+'</button>'
       +'</div>'
       :'')
     +'<div style="display:flex;align-items:center;gap:6px;">'
@@ -1235,7 +1232,9 @@ async function requestNotifPermission(){
       subscribePush().then(function(sub){ // always refresh subscription
         if(sub&&S.user){
           var backendUrl=DB.get('push:backend:url')||'https://befit-backend-teal.vercel.app';
-          // Abonnement opgeslagen in Firestore via subscribePush()
+          fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email:S.user.email,subscription:sub})
+          }).catch(function(){});
         }
       });
     }
@@ -1249,7 +1248,11 @@ async function requestNotifPermission(){
           localNotif('Be Fit Marke ✅','Meldingen ingeschakeld!','welcome');
           subscribePush().then(function(sub){
             if(sub&&S.user){
-              // Abonnement opgeslagen in Firestore via subscribePush()
+              DB.set('push:backend:url','https://befit-backend-teal.vercel.app');
+              var backendUrl='https://befit-backend-teal.vercel.app';
+              fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({email:S.user.email,subscription:sub})
+              }).catch(function(){});
             }
           });
         }
@@ -1402,15 +1405,14 @@ function analyseBlock(){
     +'</div>'
     :'';
 
-  // Barcode kaart - altijd zichtbaar bovenaan analyse tab
   var barcodeCard='<div class="card" style="margin-bottom:12px;">'
     +'<div class="card-head"><div class="card-icon-box">&#x1F4F7;</div><span class="card-title">Barcode scannen</span></div>'
     +'<div style="padding:0 0 10px;">'
     +'<button onclick="openStandaloneScanner()" style="width:100%;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;font-family:Lato,sans-serif;">&#x1F4F7; Scannen (productinfo)</button>'
     +'<div style="display:flex;gap:6px;">'
-    +'<button onclick="openBarcodeScanner(\'morning\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'
-    +'<button onclick="openBarcodeScanner(\'lunch\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'
-    +'<button onclick="openBarcodeScanner(\'evening\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 6px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'
+    +'<button onclick="openBarcodeScanner(\'morning\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 4px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'
+    +'<button onclick="openBarcodeScanner(\'lunch\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 4px;font-size:11px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'
+    +'<button onclick="openBarcodeScanner(\'evening\')" style="flex:1;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:9px 4px;font-size:11px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'
     +'</div></div></div>';
 
   if(!allItems.length){
@@ -1418,13 +1420,13 @@ function analyseBlock(){
       +'<div style="text-align:center;padding:32px 16px;">'
       +'<div style="font-size:40px;margin-bottom:12px;">&#x1F966;</div>'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Geen maaltijden ingegeven</div>'
-      +'<div style="font-size:13px;color:#9E9580;">Voeg eerst maaltijden toe via de maaltijdtabs, of scan een barcode hierboven.</div>'
+      +'<div style="font-size:13px;color:#9E9580;">Voeg eerst maaltijden toe, of scan een barcode hierboven.</div>'
       +'</div></div>';
   }
 
   // Access control
   if(!isAnalyseEnabled()){
-    return weekCard+barcodeCard+barcodeCard+'<div class="card"><div style="text-align:center;padding:32px 16px;">'
+    return weekCard+barcodeCard+'<div class="card" style="margin-bottom:12px;"><div class="card-head"><div class="card-icon-box">&#x1F512;</div><span class="card-title">Analyse</span></div>'+'<div style="padding:16px;text-align:center;">'+'<div style="font-size:12px;color:#5A7A5C;margin-bottom:10px;">'+'Scan een barcode voor productinfo of om toe te voegen aan je maaltijd.</div>'+'<button onclick="openStandaloneScanner()" style="width:100%;background:#C9A84C;color:#1E3D20;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:Lato,sans-serif;">'+'&#x1F4F7; Scannen (productinfo)</button>'+'<div style="font-size:10px;color:#9E9580;text-align:center;margin-bottom:6px;">'+'of direct toevoegen aan maaltijd:</div>'+'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">'+'<button onclick="openBarcodeScanner(\'morning\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F305; Ontbijt</button>'+'<button onclick="openBarcodeScanner(\'lunch\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x2600;&#xFE0F; Middag</button>'+'<button onclick="openBarcodeScanner(\'evening\')" style="background:#1E3D20;color:#F0EAD6;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;">&#x1F319; Avond</button>'+'</div></div></div>'+'<div class="card"><div style="text-align:center;padding:32px 16px;">'
       +'<div style="font-size:40px;margin-bottom:12px;">&#x1F512;</div>'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:#1E3D20;margin-bottom:8px;">Analyse niet beschikbaar</div>'
       +'<div style="font-size:13px;color:#9E9580;">De AI voedingsanalyse is nog niet vrijgeschakeld door je di\u00ebtiste.</div>'
@@ -1571,7 +1573,7 @@ async function runPhotoAnalyse(input){
               +'{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"korte uitleg","gerechten":["gerecht1","gerecht2"],"tips":["tip1","tip2","tip3"]}'}
           ]}]
         });
-      var data=resp; // callClaude geeft al geparsed object terug
+      var data=resp;
       if(!data||!data.content||!data.content[0]){throw new Error('Ongeldig antwoord van AI');}
       var text=data.content[0].text.replace(/```json|```/g,'').trim();
       var result=JSON.parse(text);
@@ -1613,7 +1615,7 @@ async function runAnalyse(){
         system:'Je bent een voedingsdeskundige assistent. Antwoord altijd in het Nederlands en enkel in het gevraagde JSON-formaat.',
         messages:[{role:'user',content:prompt}]
       });
-    var data=resp; // callClaude geeft al geparsed object terug
+    var data=resp;
     if(!data||!data.content||!data.content[0]){showToast('\u274C Ongeldig antwoord van AI');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
     var result=JSON.parse(text);
@@ -1641,7 +1643,7 @@ function weightBlock(){
   var lastFatEntry=hasFat?list.filter(function(p){return p.fat!=null;}).slice(-1)[0]:null;
   var statsHtml='<div class="card" style="padding:14px 16px;"><div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid #EAE2D0;"><div style="flex:1;padding:10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Huidig</div><div style="font-size:18px;font-weight:700;color:#1E3D20;">'+last.kg+'</div><div style="font-size:9px;color:#9E9580;">kg</div></div><div style="flex:1;padding:10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Start</div><div style="font-size:18px;font-weight:700;color:#1E3D20;">'+first.kg+'</div><div style="font-size:9px;color:#9E9580;">kg</div></div><div style="flex:1;padding:10px;text-align:center;'+(hasFat?'border-right:1px solid #EAE2D0;':'')+'"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Evolutie</div><div style="font-size:18px;font-weight:700;color:'+diffColor+';">'+(diff>0?'+':'')+diff+'</div><div style="font-size:9px;color:#9E9580;">'+list.length+' meting'+(list.length!==1?'en':'')+'</div></div>'+(hasFat?'<div style="flex:1;padding:10px;text-align:center;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Vetmassa</div><div style="font-size:18px;font-weight:700;color:#C0392B;">'+lastFatEntry.fat+'</div><div style="font-size:9px;color:#9E9580;">%</div></div>':'')+'</div></div>';
   var chartCard='<div class="card" style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:12px;">Gewichtsevolutie</div><canvas id="weight-chart" style="display:block;width:100%;"></canvas></div>';
-  var logRows=list.slice().reverse().slice(0,15).map(function(w){var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;var delta=prev&&w.kg&&prev.kg?Math.round((w.kg-prev.kg)*10)/10:null;var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+(w.kg?w.kg+' kg':'-')+(w.fat?'<span style="font-size:11px;color:#C0392B;margin-left:8px;">'+w.fat+'% vet</span>':'')+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';}).join('');
+  var logRows=list.slice().reverse().slice(0,15).map(function(w){var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;var delta=prev&&w.kg&&prev.kg?Math.round((w.kg-prev.kg)*10)/10:null;var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+(w.kg?w.kg+' kg':'-')+(w.fat?'<span style="font-size:11px;color:#C0392B;margin-left:8px;">'+w.fat+'% vet</span>':'')+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';}).join('');
   var logCard='<div class="card"><div style="font-size:14px;font-weight:600;color:#1E3D20;margin-bottom:10px;">Metingen</div>'+logRows+'</div>';
   // Teken admin gewichtslijn (vloeiend) - data gecaptured via IIFE
   (function(capturedPts, capturedMin, capturedMax, capturedI){
@@ -1727,7 +1729,7 @@ pts.forEach(function(p,i){ctx.beginPath();ctx.arc(xP(i),yP(p.kg),4,0,2*Math.PI);
     +'</div>'
     +(mlist.length>0?function(){
       var rows=mlist.slice().reverse().slice(0,10).map(function(m){
-        var d=new Date(m.date),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+        var d=new Date(m.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
         return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #F5F0E6;">'
           +'<div style="font-size:11px;color:#9E9580;min-width:90px;">'+ds+'</div>'
           +(m.taille?'<span style="font-size:11px;background:#EAF4F2;color:#4A8E7B;border-radius:10px;padding:2px 7px;">T '+m.taille+'</span>':'')
@@ -1958,8 +1960,7 @@ var _gX=0,_gY=0,_gZ=9.8,_GALPHA=0.85;
 function startStepCounting(){
   if(_stepListener)return;
   if(!window.DeviceMotionEvent){
-    // Stappenteller werkt enkel op smartphones met bewegingssensor
-    return; // Geen toast op desktop
+    showToast("\u274C Stappenteller niet beschikbaar op dit toestel");return;
   }
   function go(){
     var buf=[],lastStep=0;
@@ -2683,7 +2684,7 @@ function buildAdminDateNav(email,ad){
   if(!ad) return '';
   var isToday=ad===today();
   var dObj=new Date(ad+'T00:00:00');
-  var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+  var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
   var prevDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var nextDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   return '<div style="display:flex;align-items:center;gap:6px;background:#F0F7F2;border-radius:8px;padding:6px 10px;margin-bottom:10px;">'
@@ -2730,7 +2731,7 @@ function generateWeekReport(){
       if(anl&&anl.kcal)dayKcal+=anl.kcal;
     });
     totalKcal+=dayKcal;
-    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
     var mealCount=['morning','lunch','evening'].reduce(function(s,k){return s+(diary.meals&&diary.meals[k]?diary.meals[k].length:0);},0);
     var dayLine=dLabel.toUpperCase()+'\r\n';
     dayLine+='  Maaltijditems: '+mealCount+'\r\n';
@@ -2801,7 +2802,7 @@ async function runMealAnalyse(meal){
   try{
     var prompt='Analyseer deze '+mealName+':\n\n'+items.map(function(i){return '- '+i.t;}).join('\n')+'\n\nAntwoord ENKEL in dit JSON-formaat:\n{"kcal":0,"proteinen":0,"koolhydraten":0,"vetten":0,"vezels":0,"suikers":0,"score":8,"scoreUitleg":"uitleg","tips":["tip1","tip2"]}';
     var resp=await callClaude({model:'claude-sonnet-4-6',max_tokens:400,system:'Je bent een voedingsdeskundige assistent. Antwoord in het Nederlands en enkel in het gevraagde JSON-formaat.',messages:[{role:'user',content:prompt}]});
-    var data=resp; // callClaude geeft al geparsed object terug
+    var data=resp;
     if(!data||data.error){showToast('\u274C API fout: '+(data&&data.error?data.error.message:'onbekend'));S.analyseLoading=null;render();return;}
     if(!data.content||!data.content[0]){showToast('\u274C Ongeldig antwoord');S.analyseLoading=null;render();return;}
     var text=data.content[0].text.replace(/```json|```/g,'').trim();
@@ -3333,8 +3334,8 @@ async function runMealPhotoAnalyse(k,input){
       var resp=await callClaude({model:'claude-sonnet-4-20250514',max_tokens:600,
           system:'Je bent een voedingsdeskundige. Analyseer de foto en geef JSON: {"items":["item1","item2"]}. Enkel JSON, geen uitleg.',
           messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},{type:'text',text:'Welke voedingsmiddelen zie je?'}]}]});
-      var data=resp; // callClaude geeft al geparsed object terug
-      var txt=data.content&&data.content[0]&&data.content[0].text||'';
+      var data=resp;
+      var txt=data&&data.content&&data.content[0]&&data.content[0].text||'';
       var parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
       var items=parsed.items||[];
       if(!items.length){showToast('\u274C Geen voeding herkend');return;}
@@ -3385,7 +3386,7 @@ function _buildScanModal(title, onResult){
     +'<div id="bc-result" style="display:none;width:100%;max-width:340px;background:#1E3D20;border-radius:12px;padding:14px;margin-top:10px;"></div>'
     +'<div style="display:flex;gap:10px;margin-top:16px;">'
     +'<button id="bc-again" onclick="document.getElementById(\'bc-result\').style.display=\'none\';document.getElementById(\'bc-again\').style.display=\'none\';" '
-    +'style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;">\uD83D\uDD04 Opnieuw</button>'
+    +'style="display:none;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;">?? Opnieuw</button>'
     +'<button onclick="closeBarcodeScanner()" '
     +'style="background:#C0392B;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;">✕ Sluiten</button>'
     +'</div></div>';
@@ -3873,7 +3874,7 @@ function render(){
     +logoSVG(180)
     +'<div class="header-user" style="margin-left:auto;"><strong>'+S.user.name+'</strong>'+D.getDate()+' '+months[D.getMonth()]+' '+D.getFullYear()+'<button class="btn-logout" onclick="logout()">Uitloggen</button></div>'
     +'</div>'
-    +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:5px 12px;gap:6px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:12px;margin:0;text-transform:capitalize;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;border:none;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;')+'border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
+    +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:5px 12px;gap:6px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:11px;margin:0;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;border:none;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;')+'border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
     +'<div class="nav">'
     +navItem('morning','🌅','Ontbijt',tab==='morning',0)
     +navItem('lunch','☀️','Middag',tab==='lunch',0)
