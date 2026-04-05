@@ -1,5 +1,5 @@
 // Be Fit Marke SW — offline-first
-var CACHE = 'befit-v4';
+var CACHE = 'befit-v1775386953';
 var ASSETS = [
   './',
   './index.html',
@@ -54,7 +54,22 @@ self.addEventListener('fetch', function(e) {
     return;
   }
 
-  // App-bestanden: cache-first, update cache op achtergrond
+  // index.html: altijd netwerk-first zodat nieuwe versie direct geladen wordt
+  if (url.includes('index.html') || url.endsWith('/befit-app/') || url.endsWith('/befit-app')) {
+    e.respondWith(
+      fetch(e.request).then(function(response) {
+        if (response && response.status === 200) {
+          var clone = response.clone();
+          caches.open(CACHE).then(function(cache) { cache.put(e.request, clone); });
+        }
+        return response;
+      }).catch(function() {
+        return caches.match(e.request);
+      })
+    );
+    return;
+  }
+  // Andere bestanden: cache-first, update op achtergrond
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       var networkFetch = fetch(e.request).then(function(response) {
