@@ -1273,9 +1273,7 @@ async function requestNotifPermission(){
       subscribePush().then(function(sub){ // always refresh subscription
         if(sub&&S.user){
           var backendUrl=DB.get('push:backend:url')||'https://befit-backend-teal.vercel.app';
-          fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({email:S.user.email,subscription:sub})
-          }).catch(function(){});
+          // sub opgeslagen in Firestore via subscribePush()
         }
       });
     }
@@ -1289,11 +1287,7 @@ async function requestNotifPermission(){
           localNotif('Be Fit Marke ✅','Meldingen ingeschakeld!','welcome');
           subscribePush().then(function(sub){
             if(sub&&S.user){
-              DB.set('push:backend:url','https://befit-backend-teal.vercel.app');
-              var backendUrl='https://befit-backend-teal.vercel.app';
-              fetch(backendUrl+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({email:S.user.email,subscription:sub})
-              }).catch(function(){});
+              // sub opgeslagen in Firestore via subscribePush()
             }
           });
         }
