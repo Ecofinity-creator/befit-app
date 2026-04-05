@@ -85,7 +85,7 @@ body.dark .admin-client-card{background:#1a2a1c;}
 .header-user strong{display:block;color:#F0EAD6;font-size:12px;}
 .btn-logout{font-size:10px;color:#C9B97A;cursor:pointer;font-weight:700;background:none;border:none;font-family:'Lato',sans-serif;padding:0;}
 .diary-title-bar{background:rgba(20,50,22,0.7);border-bottom:1px solid rgba(255,255,255,0.07);}
-.diary-title{font-family:'Playfair Display',serif;font-style:italic;font-size:13px;color:#C9B97A;}
+.diary-title{font-family:Lato,sans-serif;font-style:normal;font-size:13px;font-weight:700;color:#C9B97A;letter-spacing:.3px;}
 .notif-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#1E3D20;color:#F0EAD6;padding:12px 16px;font-size:13px;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1E3D20;color:#F0EAD6;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1;}
@@ -798,7 +798,7 @@ function renderAdminBroadcasts(){
   var msgs=getBroadcasts();
   if(!msgs.length)return '<div style="text-align:center;color:#9E9580;font-size:12px;font-style:italic;padding:20px;">Nog geen berichten verstuurd.</div>';
   return msgs.map(function(m){
-    var d=new Date(m.ts),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'}),ts=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    var d=new Date(m.ts),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'}),ts=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
     var th=m.title?'<div style="font-weight:700;font-size:13px;color:#1E3D20;margin-bottom:3px;">'+m.title+'</div>':'';
     return '<div class="card" style="margin-bottom:10px;border-left:4px solid #4A8E7B;padding:12px 14px;"><div style="display:flex;align-items:flex-start;gap:10px;"><div style="font-size:22px;flex-shrink:0">'+(m.cat||'\uD83D\uDCA1')+'</div><div style="flex:1;min-width:0;">'+th+'<div style="font-size:12px;color:#2C3E28;line-height:1.6;">'+m.text.split('\n').join('<br>')+'</div><div style="font-size:10px;color:#9E9580;margin-top:6px;">\uD83C\uDF3F '+m.from+' &middot; '+ds+' '+ts+'</div></div><button data-bid="'+m.id+'" onclick="event.stopPropagation();deleteBroadcast(this.dataset.bid)" style="background:transparent;color:#C0392B;border:1px solid #FFCDD0;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;flex-shrink:0;">&times;</button></div></div>';
   }).join('');
@@ -900,7 +900,7 @@ if(S.adminTab==='week'){
       });
       var wt=getWeights(selClient).find(function(w){return w.date===ds;});
       var acts=(diary.activities||[]).reduce(function(s,a){return s+a.dur;},0);
-      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
+      days.push({ds:ds,label:dd.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric'}),water:diary.water||0,acts:acts,kcal:dayKcal,hasAnl:hasAnl,kg:wt?wt.kg:null,hunger:wb2.hunger||0,energy:wb2.energy||0,mood:wb2.mood||0});
     }
     var goals2=getGoals(selClient);
     function miniBar(val,max,color){
@@ -1678,7 +1678,7 @@ function weightBlock(){
   var lastFatEntry=hasFat?list.filter(function(p){return p.fat!=null;}).slice(-1)[0]:null;
   var statsHtml='<div class="card" style="padding:14px 16px;"><div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid #EAE2D0;"><div style="flex:1;padding:10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Huidig</div><div style="font-size:18px;font-weight:700;color:#1E3D20;">'+last.kg+'</div><div style="font-size:9px;color:#9E9580;">kg</div></div><div style="flex:1;padding:10px;text-align:center;border-right:1px solid #EAE2D0;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Start</div><div style="font-size:18px;font-weight:700;color:#1E3D20;">'+first.kg+'</div><div style="font-size:9px;color:#9E9580;">kg</div></div><div style="flex:1;padding:10px;text-align:center;'+(hasFat?'border-right:1px solid #EAE2D0;':'')+'"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Evolutie</div><div style="font-size:18px;font-weight:700;color:'+diffColor+';">'+(diff>0?'+':'')+diff+'</div><div style="font-size:9px;color:#9E9580;">'+list.length+' meting'+(list.length!==1?'en':'')+'</div></div>'+(hasFat?'<div style="flex:1;padding:10px;text-align:center;"><div style="font-size:9px;font-weight:700;color:#9E9580;text-transform:uppercase;margin-bottom:3px;">Vetmassa</div><div style="font-size:18px;font-weight:700;color:#C0392B;">'+lastFatEntry.fat+'</div><div style="font-size:9px;color:#9E9580;">%</div></div>':'')+'</div></div>';
   var chartCard='<div class="card" style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:#1E3D20;margin-bottom:12px;">Gewichtsevolutie</div><canvas id="weight-chart" style="display:block;width:100%;"></canvas></div>';
-  var logRows=list.slice().reverse().slice(0,15).map(function(w){var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;var delta=prev&&w.kg&&prev.kg?Math.round((w.kg-prev.kg)*10)/10:null;var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+(w.kg?w.kg+' kg':'-')+(w.fat?'<span style="font-size:11px;color:#C0392B;margin-left:8px;">'+w.fat+'% vet</span>':'')+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';}).join('');
+  var logRows=list.slice().reverse().slice(0,15).map(function(w){var d=new Date(w.date),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});var wIdx=list.indexOf(w),prev=wIdx>0?list[wIdx-1]:null;var delta=prev&&w.kg&&prev.kg?Math.round((w.kg-prev.kg)*10)/10:null;var dH=delta!==null?'<span style="font-size:11px;font-weight:700;color:'+(delta<0?'#2A6030':delta>0?'#C0392B':'#9E9580')+';margin-left:6px;">'+(delta>0?'+':'')+delta+' kg</span>':'';return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F5F0E6;"><div style="font-size:12px;color:#9E9580;min-width:105px;">'+ds+'</div><div style="font-size:14px;font-weight:700;color:#1E3D20;flex:1;">'+(w.kg?w.kg+' kg':'-')+(w.fat?'<span style="font-size:11px;color:#C0392B;margin-left:8px;">'+w.fat+'% vet</span>':'')+dH+'</div><span style="font-size:15px;color:#C0392B;cursor:pointer;padding:2px 6px;" onclick="deleteWeight(\''+w.date+'\')">&#x00D7;</span></div>';}).join('');
   var logCard='<div class="card"><div style="font-size:14px;font-weight:600;color:#1E3D20;margin-bottom:10px;">Metingen</div>'+logRows+'</div>';
 
 
@@ -1725,7 +1725,7 @@ pts.forEach(function(p,i){ctx.beginPath();ctx.arc(xP(i),yP(p.kg),4,0,2*Math.PI);
     +'</div>'
     +(mlist.length>0?function(){
       var rows=mlist.slice().reverse().slice(0,10).map(function(m){
-        var d=new Date(m.date),ds=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+        var d=new Date(m.date),ds=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
         return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #F5F0E6;">'
           +'<div style="font-size:11px;color:#9E9580;min-width:90px;">'+ds+'</div>'
           +(m.taille?'<span style="font-size:11px;background:#EAF4F2;color:#4A8E7B;border-radius:10px;padding:2px 7px;">T '+m.taille+'</span>':'')
@@ -2680,12 +2680,12 @@ function buildAdminDateNav(email,ad){
   if(!ad) return '';
   var isToday=ad===today();
   var dObj=new Date(ad+'T00:00:00');
-  var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+  var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   var prevDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var nextDate=(function(){var d=new Date(ad+'T00:00:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   return '<div style="display:flex;align-items:center;gap:6px;background:#F0F7F2;border-radius:8px;padding:6px 10px;margin-bottom:10px;">'
     +'<button onclick="event.stopPropagation();setAdminDate(\''+email+'\',\''+prevDate+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276E;</button>'
-    +'<div style="flex:1;text-align:center;"><div style="font-size:11px;font-weight:700;color:#1E3D20;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#2A6030;font-weight:700;">Vandaag</div>':'')+' </div>'
+    +'<div style="flex:1;text-align:center;"><div style="font-size:12px;font-weight:700;color:#1E3D20;text-transform:capitalize;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#2A6030;font-weight:700;">Vandaag</div>':'')+' </div>'
     +(isToday?'<button disabled style="background:#ccc;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276F;</button>':'<button onclick="event.stopPropagation();setAdminDate(\''+email+'\',\''+nextDate+'\')" style="background:#2A6030;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:14px;cursor:pointer;line-height:1;">&#x276F;</button>')
     +'</div>';
 }
@@ -2727,7 +2727,7 @@ function generateWeekReport(){
       if(anl&&anl.kcal)dayKcal+=anl.kcal;
     });
     totalKcal+=dayKcal;
-    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+    var dLabel=d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
     var mealCount=['morning','lunch','evening'].reduce(function(s,k){return s+(diary.meals&&diary.meals[k]?diary.meals[k].length:0);},0);
     var dayLine=dLabel.toUpperCase()+'\r\n';
     dayLine+='  Maaltijditems: '+mealCount+'\r\n';
@@ -3870,7 +3870,7 @@ function render(){
     +logoSVG(180)
     +'<div class="header-user" style="margin-left:auto;"><strong>'+S.user.name+'</strong>'+D.getDate()+' '+months[D.getMonth()]+' '+D.getFullYear()+'<button class="btn-logout" onclick="logout()">Uitloggen</button></div>'
     +'</div>'
-    +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:5px 12px;gap:6px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:11px;margin:0;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;border:none;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;')+'border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
+    +(function(){var md=getMealDate(),isToday=md===today();var dObj=new Date(md+'T00:00:00');var dLbl=dObj.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});return '<div class="diary-title-bar" style="display:flex;align-items:center;padding:5px 12px;gap:6px;">'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()-1);setMealDate(d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\'));" style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276E;</button>'+'<div style="flex:1;text-align:center;">'+'<div class="diary-title" style="font-size:11px;margin:0;">'+dLbl+'</div>'+(isToday?'<div style="font-size:9px;color:#C9B97A;font-weight:700;">Vandaag</div>':'')+'</div>'+'<button onclick="var d=new Date(getMealDate()+\'T00:00:00\');d.setDate(d.getDate()+1);var nd=d.getFullYear()+\'-\'+String(d.getMonth()+1).padStart(2,\'0\')+\'-\'+String(d.getDate()).padStart(2,\'0\');if(nd<=today())setMealDate(nd);" '+(isToday?'disabled style="color:rgba(255,255,255,0.2);background:transparent;border:none;':'style="background:rgba(255,255,255,0.15);color:#C9B97A;border:none;')+'border-radius:6px;padding:3px 10px;font-size:16px;cursor:pointer;line-height:1;">&#x276F;</button>'+'</div>';})()
     +'<div class="nav">'
     +navItem('morning','🌅','Ontbijt',tab==='morning',0)
     +navItem('lunch','☀️','Middag',tab==='lunch',0)
