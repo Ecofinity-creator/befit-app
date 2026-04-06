@@ -414,7 +414,7 @@ function startDiarySync(email){
 }
 
 
-var S={screen:'login',adminDates:{},user:null,showGroupMsg:false,groupMsgSelected:[],adminFilterInactive:false,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null};
+var S={screen:'login',adminDates:{},user:null,showGroupMsg:false,groupMsgSelected:[],adminFilterInactive:false,tab:'morning',meals:{morning:[],lunch:[],evening:[]},snacks:{morning:[],lunch:[],evening:[]},water:0,wgoal:8,reminders:[],activities:[],summaryDate:null,analyseLoading:false,photoPreview:null,summaryDate:null,mealDate:null,analyseLoading:null,photoPreview:null,showInvite:false,timers:{morning:null,lunch:null,evening:null},cds:{morning:0,lunch:0,evening:0},timerFireAt:{},adminOpen:null,adminClients:[],adminTab:'clients',_forgotEmail:null,_forgotIsAdmin:false,_reminderInterval:null,_mealReminderInterval:null,_waterReminderInterval:null};
 
 function nowHHMM(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -533,7 +533,7 @@ function doLogin(){
     S.snacks={morning:[],lunch:[],evening:[]};
     S.water=0;S.reminders=[];
     loadUserData();S.screen='app';
-    saveSession();if(S._startTab){S.tab=S._startTab;}if(S._startSection==='snack'&&S._startTab){  setTimeout(function(){    var el=document.getElementById('snack-in-'+S._startTab);    if(el){el.scrollIntoView({behavior:'smooth'});el.focus();}    S._startSection=null;  },600);}startReminderCheck();checkMissedSnackPushes();scheduleDailyReminder();render();requestNotifPermission();setTimeout(startStepCounting,1500);
+    saveSession();if(S._startTab){S.tab=S._startTab;}if(S._startSection==='snack'&&S._startTab){  setTimeout(function(){    var el=document.getElementById('snack-in-'+S._startTab);    if(el){el.scrollIntoView({behavior:'smooth'});el.focus();}    S._startSection=null;  },600);}startReminderCheck();checkMissedSnackPushes();scheduleDailyReminder();scheduleMealReminders();scheduleWaterReminders();setTimeout(sendScheduledRemindersViaServer,3000);render();requestNotifPermission();setTimeout(startStepCounting,1500);
     syncFromFirestore(email).then(function(){loadUserData();render();}).catch(function(){});
     startDiarySync(email);
   }
@@ -806,7 +806,7 @@ function renderAdminBroadcasts(){
 
 function renderAdminTabContent(ch){
   if(S.adminTab==='clients')return '<div style="padding:14px;"><div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:600;color:#1E3D20;margin-bottom:4px">Dagboeken &mdash; '+today()+'</div><div style="font-size:11px;color:#9E9580;margin-bottom:14px">'+S.adminClients.length+' klant'+(S.adminClients.length!==1?'en':'')+' geregistreerd</div>'
-      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="S.adminFilterInactive=!S.adminFilterInactive;render()" style="background:'+(S.adminFilterInactive?'#C0392B':'#F0EAD6')+';color:'+(S.adminFilterInactive?'#fff':'#C0392B')+';border:1px solid #C0392B;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;" title="Filter inactieve klanten">&#x1F6D1; Inactief</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:14px;">'+'<button onclick="showInviteModal()" style="flex:1;background:#2A6030;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2709;&#xFE0F; Klant uitnodigen</button>'+'<button onclick="showGroupMessageModal()" style="flex:1;background:#4A8E7B;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">\uD83D\uDCE3 Groep</button>'+'<button onclick="S.adminFilterInactive=!S.adminFilterInactive;render()" style="background:'+(S.adminFilterInactive?'#C0392B':'#F0EAD6')+';color:'+(S.adminFilterInactive?'#fff':'#C0392B')+';border:1px solid #C0392B;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;" title="Filter inactieve klanten">&#x1F6D1; '+(S.adminFilterInactive?'Alle klanten':'Inactief')+'</button>'+'<button onclick="loadAdminClientsFromFirestore()" style="background:#F0F7F2;color:#2A6030;border:1px solid #A8D4B8;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;" title="Ververs data">&#x1F504;</button>'+'</div>'
       +ch+'</div>';
   if(S.adminTab==='news'||!['clients','settings','week','qr'].includes(S.adminTab)){
   var cats=['\uD83D\uDCA1','\uD83E\uDD57','\uD83D\uDCAA','\uD83C\uDF3F','\uD83C\uDF89','\u26A0\uFE0F','\uD83D\uDCC5','\u2764\uFE0F'];
@@ -1217,7 +1217,8 @@ function loginScreen(titleTxt, subTxt, bodyHtml, extraLinks){
 
 const VAPID_PUBLIC='BEAyf-GldiNn5xkuXFFl6dLqaICQii6aQS7PWDHw-eU6rxI2Zc9-_RtvtzXzzIo2X2XAZnOHj7HxLd9YHuBxH_0';
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js?v=1774384120',{updateViaCache:'none'}).then(function(reg){
+  navigator.serviceWorker.register('./sw.js?v=1775386933',{updateViaCache:'none'}).then(function(reg){
+    reg.update(); // Controleer altijd op nieuwe versie
     reg.update();
     if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
     reg.addEventListener('updatefound',function(){
@@ -1378,7 +1379,7 @@ function setMealDate(d){
   }).catch(function(){});
 }
 function profileBlock(){var ud=DB.get('user:'+S.user.email)||{};return '<div class="card"><div class="card-head"><div class="card-icon-box">&#x1F464;</div><span class="card-title">Mijn profiel</span></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:6px;">Naam</div><input id="prof-name" type="text" value="'+(ud.name||'')+'" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div style="margin-bottom:14px;"><div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;margin-bottom:6px;">Nieuw wachtwoord <span style="font-weight:400;color:#9E9580;">(laat leeg)</span></div><input id="prof-pass1" type="password" placeholder="Nieuw wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;margin-bottom:8px;"/><input id="prof-pass2" type="password" placeholder="Herhaal wachtwoord" style="width:100%;border:1px solid #DDD4C0;border-radius:9px;padding:10px 12px;font-size:14px;font-family:Lato,sans-serif;color:#1E3D20;background:#FDFAF5;outline:none;"/></div><div id="prof-err" style="color:#C0392B;font-size:12px;margin-bottom:10px;display:none;"></div><button onclick="saveProfile()" style="width:100%;background:#1E3D20;color:#F0EAD6;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">&#x2713; Opslaan</button></div><div class="card"><div style="font-size:12px;color:#9E9580;margin-bottom:6px;">&#x1F4E7; E-mailadres</div><div style="font-size:14px;font-weight:700;color:#1E3D20;">'+S.user.email+'</div></div>'
-  +'<div class="card"><div class="card-head"><div class="card-icon-box">🌓</div><span class="card-title">Dag / nacht modus</span></div><div style="font-size:12px;color:#9E9580;">Schakelt automatisch mee met je telefooninstellingen.</div></div>';}
+  +'<div style="font-size:10px;font-weight:700;color:#5A7A5C;text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px;">⚙️ Instellingen</div>'+'<div class="card"><div class="card-head"><div class="card-icon-box">🌓</div><span class="card-title">Dag / nacht modus</span></div><div style="font-size:12px;color:#9E9580;">Schakelt automatisch mee met je telefooninstellingen.</div></div>'+notifSettingsCard();}
 function saveProfile(){var name=document.getElementById('prof-name').value.trim(),p1=document.getElementById('prof-pass1').value,p2=document.getElementById('prof-pass2').value,err=document.getElementById('prof-err');err.style.display='none';if(!name){err.textContent='Naam mag niet leeg zijn.';err.style.display='block';return;}if(p1&&p1.length<4){err.textContent='Wachtwoord min. 4 tekens.';err.style.display='block';return;}if(p1&&p1!==p2){err.textContent='Wachtwoorden komen niet overeen.';err.style.display='block';return;}var ud=DB.get('user:'+S.user.email);ud.name=name;if(p1)ud.pass=btoa(p1);DB.set('user:'+S.user.email,ud);S.user.name=name;showToast('\u2713 Profiel opgeslagen');render();}
 function analyseBlock(){
   var selDate=getSummaryDate(),isToday=selDate===today();
@@ -3078,7 +3079,7 @@ function chatKey(email){return 'chat:'+email;}
 function unreadBroadcastCount(email){var read=getReadIds(email);return getBroadcasts().filter(function(m){return !read.includes(m.id);}).length;}
 function getReadIds(email){return DB.get('broadcast:read:'+email)||[];}
 function getBroadcasts(){return DB.get('broadcast:messages')||[];}
-function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}if(S.user){var _psub=DB.get('push:sub:'+S.user.email);if(_psub&&typeof sendPushToClient==='function')sendPushToClient(_psub,_title,_msg,'snack-'+k);}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
+function startReminderCheck(){clearInterval(S._reminderInterval);S._reminderInterval=setInterval(function(){var ch=false;['morning','lunch','evening'].forEach(function(k){if(S.timers[k]&&S.cds[k]>0){S.cds[k]--;ch=true;}if(S.timers[k]&&S.cds[k]===0){var _un=S.user?S.user.name:'jou';var _ml=CFG[k].label.toLowerCase();var _msg='\uD83C\uDF4E Tijd voor een tussendoortje na je '+_ml+'!';var _title='Be Fit Marke';if(isNotifEnabled('snack')){if(Notification.permission==='granted'){localNotif(_title,_msg,'snack-'+k);}else if(Notification.permission==='default'){Notification.requestPermission().then(function(p){if(p==='granted')localNotif(_title,_msg,'snack-'+k);});}}if(S.user){var _psub=DB.get('push:sub:'+S.user.email);if(_psub&&typeof sendPushToClient==='function')sendPushToClient(_psub,_title,_msg,'snack-'+k);}if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);showNotif(_msg);if(typeof sendPushToClient==='function'){var _sub=DB.get('push:sub:'+(S.user?S.user.email:''));if(_sub)sendPushToClient(_sub,_title,_msg,'snack');}S.timers[k]=false;}});if(ch){['morning','lunch','evening'].forEach(function(k){var el=document.getElementById('cd-'+k);if(el){var s=S.cds[k],h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;el.textContent=h>0?h+'u '+String(m).padStart(2,'0')+'m':String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}});}},1000);}
 
 function cleanPasswordManagerInjections(){
   // Remove injected password manager buttons/icons from login form
@@ -3765,6 +3766,226 @@ function _doSendTestPush(sub,email,btn){
       setTimeout(function(){if(errPopup.parentNode)errPopup.parentNode.removeChild(errPopup);},3000);
     });
 }
+// ── Notificatie-instellingen ──────────────────────────────────────────────
+function getNotifSettings(){
+  return DB.get('notif:settings:'+((S.user&&S.user.email)||''))||{
+    meal:true, water:true, snack:true
+  };
+}
+function saveNotifSettings(s){DB.set('notif:settings:'+S.user.email,s);}
+function isNotifEnabled(type){var s=getNotifSettings();return s[type]!==false;}
+
+// ── Maaltijd-reminders (10u, 14u, 20u) ───────────────────────────────────
+function scheduleMealReminders(){
+  if(!S.user||S.user.isAdmin)return;
+  // Check meteen gemiste reminders (werkt ook na app-herstart)
+  checkAllMealReminders();
+  // Herhaal elke 30 minuten zolang app open is
+  clearInterval(S._mealReminderInterval);
+  S._mealReminderInterval=setInterval(function(){
+    checkAllMealReminders();
+  },30*60*1000);
+}
+function checkAllMealReminders(){
+  if(!S.user||S.user.isAdmin)return;
+  var now=new Date(),h=now.getHours(),m=now.getMinutes();
+  var times=[
+    {h:10,m:0,meal:'morning',label:'Ontbijt',emoji:'\uD83C\uDF05'},
+    {h:14,m:0,meal:'lunch',  label:'Middagmaal',emoji:'\u2600\uFE0F'},
+    {h:20,m:0,meal:'evening',label:'Avondmaal',emoji:'\uD83C\uDF19'}
+  ];
+  times.forEach(function(t){
+    // Tijdstip gepasseerd vandaag?
+    if(h>t.h||(h===t.h&&m>=t.m)){
+      checkAndSendMealReminder(t);
+    }
+  });
+}
+function checkAndSendMealReminder(t){
+  if(!S.user||S.user.isAdmin)return;
+  if(!isNotifEnabled('meal'))return;
+  var email=S.user.email;
+  var key='meal:reminder:'+email+':'+today()+':'+t.meal;
+  if(DB.get(key))return;
+  var diary=DB.get('diary:'+email+':'+today());
+  var meals=(diary&&diary.meals&&diary.meals[t.meal])||[];
+  if(meals.length>0)return; // al ingevuld
+  DB.set(key,1);
+  var msg=t.emoji+' Vergeet je '+t.label.toLowerCase()+' niet te noteren!';
+  // Push versturen - laad subscription ook vanuit Firestore
+  function _sendMealPush(sub){
+    if(sub)sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke',msg,'meal-'+t.meal);
+    if(Notification.permission==='granted')localNotif('Be Fit Marke',msg,'meal-'+t.meal);
+    showNotif(msg);
+  }
+  var sub=DB.get('push:sub:'+email);
+  if(fsdb&&typeof fsKey==='function'){
+    fsdb.collection('data').doc(fsKey('push:sub:'+email)).get().then(function(snap){
+      if(snap.exists&&snap.data()&&snap.data().v){
+        var fsSub=JSON.parse(snap.data().v);DB.set('push:sub:'+email,fsSub);
+        _sendMealPush(fsSub);
+      } else {_sendMealPush(sub);}
+    }).catch(function(){_sendMealPush(sub);});
+  } else {_sendMealPush(sub);}
+}
+
+// ── Water-reminders (12u < 1L, 18u < 2L) ─────────────────────────────────
+function scheduleWaterReminders(){
+  if(!S.user||S.user.isAdmin)return;
+  checkAllWaterReminders();
+  clearInterval(S._waterReminderInterval);
+  S._waterReminderInterval=setInterval(function(){
+    checkAllWaterReminders();
+  },30*60*1000);
+}
+function checkAllWaterReminders(){
+  if(!S.user||S.user.isAdmin)return;
+  var now=new Date(),h=now.getHours(),m=now.getMinutes();
+  var checks=[
+    {h:12,m:0,minGlasses:4,msg:'\uD83D\uDCA7 Je hebt nog maar weinig gedronken. Vergeet niet te hydrateren!'},
+    {h:18,m:0,minGlasses:8,msg:'\uD83D\uDCA7 Probeer vandaag nog 2 liter te halen. Drink nu wat water!'}
+  ];
+  checks.forEach(function(c){
+    if(h>c.h||(h===c.h&&m>=c.m)){
+      checkAndSendWaterReminder(c);
+    }
+  });
+}
+function checkAndSendWaterReminder(c){
+  if(!S.user||S.user.isAdmin)return;
+  if(!isNotifEnabled('water'))return;
+  var email=S.user.email;
+  var key='water:reminder:'+email+':'+today()+':'+c.h;
+  if(DB.get(key))return;
+  var diary=DB.get('diary:'+email+':'+today());
+  var glasses=(diary&&diary.water)||S.water||0;
+  if(glasses>=c.minGlasses)return; // genoeg gedronken
+  DB.set(key,1);
+  function _sendWaterPush(sub){
+    if(sub)sendPushToClient(sub,'\uD83C\uDF3F Be Fit Marke',c.msg,'water-reminder');
+    if(Notification.permission==='granted')localNotif('Be Fit Marke',c.msg,'water-reminder');
+    showNotif(c.msg);
+  }
+  var sub=DB.get('push:sub:'+email);
+  if(fsdb&&typeof fsKey==='function'){
+    fsdb.collection('data').doc(fsKey('push:sub:'+email)).get().then(function(snap){
+      if(snap.exists&&snap.data()&&snap.data().v){
+        var fsSub=JSON.parse(snap.data().v);DB.set('push:sub:'+email,fsSub);
+        _sendWaterPush(fsSub);
+      } else {_sendWaterPush(sub);}
+    }).catch(function(){_sendWaterPush(sub);});
+  } else {_sendWaterPush(sub);}
+}
+
+function notifSettingsCard(){
+  if(!S.user||S.user.isAdmin)return '';
+  var s=getNotifSettings();
+  var rows=['<div class="card" id="notif-settings"><div class="card-head"><div class="card-icon-box">\uD83D\uDD14</div><span class="card-title">Meldingen</span></div>','<div style="font-size:11px;color:#9E9580;margin-bottom:10px;">Beheer welke herinneringen je ontvangt.</div>'];
+  [['meal','\uD83C\uDF7D\uFE0F Maaltijd-herinneringen','Dagelijks om 10u, 14u en 20u als je nog niet hebt ingevuld.'],
+   ['water','\uD83D\uDCA7 Water-herinneringen','Om 12u en 18u als je nog onvoldoende hebt gedronken.'],
+   ['snack','\uD83C\uDF4E Tussendoortje-herinneringen','Na elke maaltijd als de timer actief is.']
+  ].forEach(function(row){
+    var type=row[0],label=row[1],desc=row[2],on=s[type]!==false;
+    rows.push('<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F0EAD6;">'
+      +'<div style="flex:1;"><div style="font-size:12px;font-weight:700;color:#1E3D20;">'+label+'</div>'
+      +'<div style="font-size:10px;color:#9E9580;">'+desc+'</div></div>'
+      +'<button onclick="toggleNotif(\''+type+'\')" style="background:'+(on?'#1E3D20':'#C0392B')+';color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;white-space:nowrap;">'+(on?'AAN':'UIT')+'</button></div>');
+  });
+  rows.push('</div>');
+  return rows.join('');
+}
+function toggleNotif(type){
+  var s=getNotifSettings();
+  s[type]=!s[type];
+  saveNotifSettings(s);
+  var labels={meal:'Maaltijd',water:'Water',snack:'Tussendoortje'};
+  showToast((s[type]?'\u2713 ':'\u274C ')+labels[type]+' meldingen '+(s[type]?'ingeschakeld':'uitgeschakeld'));
+  render();
+}
+
+// ── Server-side geplande reminders bij app-open ──────────────────────────────
+async function sendScheduledRemindersViaServer(){
+  if(!S.user||S.user.isAdmin)return;
+  if(!isNotifEnabled('meal')&&!isNotifEnabled('water'))return;
+  var email=S.user.email;
+  var now=new Date(),h=now.getHours(),m=now.getMinutes();
+  var pending=[];
+
+  // Maaltijd reminders
+  if(isNotifEnabled('meal')){
+    var times=[
+      {h:10,meal:'morning',label:'ontbijt',emoji:'\uD83C\uDF05'},
+      {h:14,meal:'lunch',  label:'middagmaal',emoji:'\u2600\uFE0F'},
+      {h:20,meal:'evening',label:'avondmaal',emoji:'\uD83C\uDF19'}
+    ];
+    var diary=DB.get('diary:'+email+':'+today())||{meals:{}};
+    times.forEach(function(t){
+      if(h<t.h||(h===t.h&&m<t.m))return; // tijdstip nog niet bereikt
+      var key='meal:reminder:'+email+':'+today()+':'+t.meal;
+      if(DB.get(key))return; // al verstuurd
+      var meals=(diary.meals&&diary.meals[t.meal])||[];
+      if(meals.length>0){DB.set(key,1);return;} // al ingevuld
+      DB.set(key,1);
+      pending.push({
+        title:'\uD83C\uDF3F Be Fit Marke',
+        body:t.emoji+' Vergeet je '+t.label+' niet te noteren!',
+        tag:'meal-'+t.meal
+      });
+    });
+  }
+
+  // Water reminders
+  if(isNotifEnabled('water')){
+    var diary2=DB.get('diary:'+email+':'+today())||{};
+    var glasses=(diary2.water)||0;
+    var waterChecks=[
+      {h:12,minG:4,msg:'\uD83D\uDCA7 Je hebt nog maar weinig gedronken. Vergeet niet te hydrateren!'},
+      {h:18,minG:8,msg:'\uD83D\uDCA7 Probeer vandaag nog 2 liter te halen. Drink nu wat water!'}
+    ];
+    waterChecks.forEach(function(c){
+      if(h<c.h||(h===c.h&&m<0))return;
+      var key='water:reminder:'+email+':'+today()+':'+c.h;
+      if(DB.get(key))return;
+      if(glasses>=c.minG){DB.set(key,1);return;}
+      DB.set(key,1);
+      pending.push({title:'\uD83C\uDF3F Be Fit Marke',body:c.msg,tag:'water-reminder'});
+    });
+  }
+
+  if(!pending.length)return;
+
+  // Laad subscription uit Firestore
+  var sub=DB.get('push:sub:'+email);
+  if(fsdb&&typeof fsKey==='function'){
+    try{
+      var snap=await fsdb.collection('data').doc(fsKey('push:sub:'+email)).get();
+      if(snap.exists&&snap.data()&&snap.data().v){
+        sub=JSON.parse(snap.data().v);
+        DB.set('push:sub:'+email,sub);
+      }
+    }catch(e){}
+  }
+  if(!sub)return;
+
+  // Stuur via Vercel
+  try{
+    await fetch('https://befit-backend-teal.vercel.app/api/send-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub,title:pending[0].title,body:pending.map(function(p){return p.body;}).join(' | '),tag:pending[0].tag})
+    });
+    // Als meer dan 1, stuur ze apart
+    for(var pi=1;pi<pending.length;pi++){
+      await new Promise(function(r){setTimeout(r,500);});
+      await fetch('https://befit-backend-teal.vercel.app/api/send-push',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({subscription:sub,title:pending[pi].title,body:pending[pi].body,tag:pending[pi].tag})
+      });
+    }
+  }catch(e){console.warn('Scheduled reminder push mislukt:',e.message);}
+}
+
 function render(){
   var app=document.getElementById('app');
 
@@ -3809,7 +4030,16 @@ function render(){
   if(S.screen==='admin'){
     loadAdminClients();
     var _search=(S.adminSearch||'').toLowerCase().trim();
-  var _filtered=_search?S.adminClients.filter(function(cl){return (cl.name||'').toLowerCase().includes(_search)||(cl.email||'').toLowerCase().includes(_search);}):S.adminClients;
+  // Eerst filteren op inactief (indien actief)
+  var _base=S.adminClients;
+  if(S.adminFilterInactive){
+    _base=_base.filter(function(cl){
+      if((DB.get('user:'+cl.email)||{}).status!=='approved')return false;
+      return getDaysInactive(cl.email)>=3;
+    });
+  }
+  // Dan filteren op zoekterm
+  var _filtered=_search?_base.filter(function(cl){return (cl.name||'').toLowerCase().includes(_search)||(cl.email||'').toLowerCase().includes(_search);}):_base;
   var ch=_filtered.length===0&&S.adminClients.length===0
       ?'<div style="text-align:center;padding:40px 16px;">'
         +'<div style="font-size:36px;margin-bottom:12px;">&#x1F465;</div>'
@@ -3820,7 +4050,9 @@ function render(){
         +'<button onclick="loadAdminClientsFromFirestore()" style="background:transparent;color:#2A6030;border:1px solid #A8D4B8;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;width:100%;">&#x1F504; Opnieuw laden</button>'
         +'</div>'
       :(_search&&_filtered.length===0
-        ?'<div style="text-align:center;padding:30px;color:#9E9580;font-size:13px;font-style:italic;">Geen klanten gevonden voor \"'+_search+'\"</div>'
+        ?'<div style="text-align:center;padding:30px;color:#9E9580;font-size:13px;">'
+        +(S.adminFilterInactive&&!_search?'\uD83D\uDED1 Geen inactieve klanten gevonden.':'Geen klanten gevonden voor \"'+_search+'\"')
+        +'</div>'
         :_filtered.map(function(c,i){return renderAdminClient(c,i);}).join(''));
     var tabStyle='flex:0 0 auto;white-space:nowrap;text-align:center;padding:12px 14px;font-size:12px;font-weight:700;font-family:Lato,sans-serif;cursor:pointer;';
     var t1=S.adminTab==='clients';
@@ -3891,8 +4123,8 @@ function render(){
     +navItem('templates','⭐','Sjablonen',tab==='templates',0)
     +navItem('steps','👟','Stappen',tab==='steps',0)
     +'</div>'
-    +'<div class="content">'+goalsDash+tabContent+'<div style="text-align:center;padding:18px 0 6px;font-size:9px;color:rgba(255,255,255,0.55);letter-spacing:.6px;background:rgba(0,0,0,0.15);padding:10px;border-radius:8px;">'
-    +'Powered by <span style="font-weight:700;color:rgba(255,255,255,0.8);font-style:italic;">Verdify</span> &mdash; &copy; '+new Date().getFullYear()+' &mdash; <span style="opacity:.6;">v 05/04/2026 07:07</span>'+'</div>'
+    +'<div class="content">'+goalsDash+tabContent+'<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.7);background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;margin-top:4px;">'
+    +'Powered by <span style="font-weight:700;color:rgba(255,255,255,0.9);">Verdify</span> &mdash; &copy; '+new Date().getFullYear()+' &nbsp;|&nbsp; <span style="color:#C9B97A;font-weight:700;">v 05/04/2026 07:20</span>'+'</div>'
     +'</div>'
     ; // Dag/nacht schakelt automatisch mee met systeemvoorkeur
   // Video call overlay
